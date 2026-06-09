@@ -62,4 +62,14 @@ endif()
 
 include(tooling/Codegen.cmake)
 add_subdirectory(libmdr)
-add_subdirectory(client)
+
+option(MDR_BUILD_CLIENT "Build the reference ImGui/SDL client" ON)
+if (MDR_BUILD_CLIENT)
+    add_subdirectory(client)
+endif()
+
+# btop-style terminal client (macOS/Linux only)
+option(MDR_BUILD_CLIENT_TUI "Build the FTXUI terminal client" ON)
+if (MDR_BUILD_CLIENT_TUI AND (MDR_PLATFORM_OS STREQUAL "MACOS" OR MDR_PLATFORM_OS STREQUAL "LINUX"))
+    add_subdirectory(client-tui)
+endif()
