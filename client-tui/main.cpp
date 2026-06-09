@@ -214,12 +214,22 @@ int main()
             if (!app.initialized)
                 body = vbox({text("Connected ✓ — querying device...") | bold | color(Color::Green)});
             else
+            {
+                // TEMP diagnostics line (Phase 3 debugging — removed in Phase 4 polish).
+                std::string diag = std::string("[") + (device.IsReady() ? "idle" : "BUSY") + "]"
+                    + " dirty=" + (device.IsDirty() ? "Y" : "n")
+                    + " eq=" + std::to_string(static_cast<int>(device.mEqPresetId.desired))
+                    + "->" + std::to_string(static_cast<int>(device.mEqPresetId.current))
+                    + " bands=" + std::to_string(device.mEqConfig.current.size())
+                    + " err=" + device.GetLastError();
                 body = vbox({
                     tui::RenderDashboard(device),
                     filler(),
                     separator(),
+                    text(diag) | dim,
                     tui::Footer(device, ctrl),
                 });
+            }
             break;
         case Stage::Connecting:
             body = vbox({text("Connecting...") | bold, text(app.status) | dim});
