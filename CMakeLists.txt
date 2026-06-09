@@ -1,0 +1,65 @@
+cmake_minimum_required(VERSION 3.31 FATAL_ERROR)
+project(SonyHeadphonesClient C CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+
+option(MDR_BUILD_WITH_ASAN "Build with Address Sanitizer enabled" OFF)
+if (MDR_BUILD_WITH_ASAN)
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        message(WARNING "ASAN not enabled on MSVC by *us*. You're on your own.")
+    else ()
+        add_compile_options("-fsanitize=address")
+        add_link_options("-fsanitize=address")
+    endif ()
+endif ()
+
+option(MDR_DEBUG "Build with debug flags enabled" OFF)
+if (MDR_DEBUG)
+    message(STATUS "Debugging features *ON*. Enjoy the logs.")
+   add_compile_definitions(-DMDR_DEBUG)
+   add_compile_definitions(-D_DEBUG)
+endif ()
+
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    # https://developercommunity.visualstudio.com/t/__VA_OPT__-should-be-enabled-by-std:c/10565399
+    add_compile_options("/Zc:preprocessor")
+    add_compile_options("/utf-8")
+else()
+    add_compile_options("-Wall" "-Wno-unused-function" "-Wno-unused-variable")
+endif()
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
+
+include(DetectPlatform.cmake)
+MDR_DetectPlatform() # Sets MDR_PLATFORM_OS
+include(DetectGitInfo.cmake)
+MDR_DetectGitInfo() # Sets MDR_GIT_COMMIT_HASH and MDR_GIT_BRANCH_NAME
+if(MDR_PLATFORM_OS STREQUAL "EMSCRIPTEN")
+    add_link_options(
+            # For Emscripten: We use exceptions mainly for Validation and MDR_CHECKs
+            # Do note that the overhead from exceptions is not trivial _even if_ we don't
+            # take the slow path.
+            -fexceptions
+            -sEXCEPTION_CATCHING_ALLOWED=[..]
+            -sALLOW_MEMORY_GROWTH
+            -sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','HEAPU8']
+    )
+    add_compile_options(-O1 -fexceptions)
+endif()
+
+add_compile_definitions("MDR_PLATFORM_${MDR_PLATFORM_OS}")
+
+cmake_policy(SET CMP0171 NEW) # CODEGEN keyword for add_custom_command
+
+add_subdirectory(contrib)
+# tooling comes before libmdr so codegen targets exist when libmdr declares its generated files.
+# mdr_add_codegen() is only defined when LLVM was detected and codegen is not disabled;
+# libmdr guards on (COMMAND mdr_add_codegen).
+option(MDR_ENABLE_CODEGEN "Enable codegen targets (requires LLVM)" ON)
+if (MDR_ENABLE_CODEGEN)
+    add_subdirectory(tooling)
+endif()
+
+include(tooling/Codegen.cmake)
+add_subdirectory(libmdr)
+add_subdirectory(client)

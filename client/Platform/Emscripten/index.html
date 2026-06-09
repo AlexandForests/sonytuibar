@@ -1,0 +1,132 @@
+<!doctype html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1" />
+    <meta name="description" content="Cross-platform Sony Sound Connect (formerly Headphones Connect) implementation">
+    <meta name="author" content="mos9527">
+    <meta name="keywords" content="Sony, Headphones, Sound Connect, Headphones Connect, SonyHeadphonesClient">
+    <meta property="og:title" content="SonyHeadphonesClient - Web Client">
+    <meta property="og:description" content="Cross-platform Sony Sound Connect (formerly Headphones Connect) implementation">
+    <meta property="og:type" content="website">
+    <link rel="manifest" href="manifest.json" />
+    <title>SonyHeadphonesClient - Web Client</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: black
+        }
+
+        .emscripten {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            margin: 0;
+            border: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: block;
+            image-rendering: optimizeSpeed;
+            -ms-interpolation-mode: nearest-neighbor;
+        }
+
+        #preload {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            color: white;
+            font-family: sans-serif;
+            /* Centering */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #status-text {
+            margin-bottom: 8px;
+        }
+
+        #progress-bar {
+            width: 300px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="preload">
+        <div id="status-text"></div>
+        <progress id="progress-bar" value="0" max="100"></progress>
+    </div>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <script type='text/javascript'>
+        var Module = {
+            preRun: [],
+            postRun: [],
+            print: (function () {
+                return function (text) {
+                    text = Array.prototype.slice.call(arguments).join(' ');
+                    console.log(text);
+                };
+            })(),
+            printErr: function (text) {
+                text = Array.prototype.slice.call(arguments).join(' ');
+                console.info(text);
+            },
+            canvas: (function () {
+                return document.getElementById('canvas');
+            })(),
+            statusTextElement: document.getElementById('status-text'),
+            progressElement: document.getElementById('progress-bar'),
+            setStatus: (text) => {
+                if (!Module.statusTextElement) return;
+
+                if (!text) {
+                    Module.statusTextElement.innerText = "";
+                    Module.progressElement.style.display = 'none';
+                    return;
+                }
+                Module.statusTextElement.innerText = text;
+                const match = text.match(/([\d\.]*)\/([\d\.]*) MB/);
+                if (match) {
+                    const loaded = parseFloat(match[1]);
+                    const total = parseFloat(match[2]);
+                    if (total > 0) {
+                        const percent = (loaded / total) * 100;
+                        Module.progressElement.value = percent;
+                        Module.progressElement.style.display = 'block';
+                    }
+                } else {
+                    Module.progressElement.style.display = 'none';
+                }
+            },
+
+            totalDependencies: 0,
+            monitorRunDependencies: (left) => {
+                Module.totalDependencies = Math.max(Module.totalDependencies, left);
+                Module.setStatus(left ? 'Preparing... (' + (Module.totalDependencies - left) + '/' + Module.totalDependencies + ')' : 'All downloads complete.');
+            },
+            onRuntimeInitialized: () => {
+                document.getElementById('preload').remove();
+            }
+        };
+
+        const preventDefault = Event.prototype.preventDefault;
+        Event.prototype.preventDefault = function (event) {
+            // SDL basically prevents all inputs from getting through the
+            // browser. We don't exactly want that - and since we don't use
+            // function keys, etc. anyway, let it all pass.
+        }
+
+        // Copyright reserved by @lxgw: https://github.com/lxgw/NeoXiHei-Code
+        navigator.externalFont = "font-NeoXiHeiCode-Regular.ttf";
+    </script>
+    <script async type="text/javascript" src="SonyHeadphonesClient.js"></script>
+</body>
