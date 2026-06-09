@@ -1,13 +1,21 @@
 // SonyHeadphonesClient — btop-style terminal client (Phase 1: scaffold + connect)
-#include <atomic>
+//
+// Threading model: everything (UI + libmdr + connection) runs on the main
+// thread. This is deliberate — macOS IOBluetooth delivers its async RFCOMM
+// callbacks on the main thread's run loop, and the platform backend's Poll()
+// runs the *current* thread's run loop. So libmdr must be driven on the same
+// (main) thread that owns the run loop. We use ftxui::Loop::RunOnce() (instead
+// of the blocking ScreenInteractive::Loop) so the main thread can interleave
+// rendering with servicing the connection. (Matches the reference client, which
+// relies on SDL pumping the Cocoa run loop every frame.)
 #include <chrono>
-#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/event.hpp>
+#include <ftxui/component/loop.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
 
@@ -15,7 +23,6 @@
 #include "Connection.hpp"
 
 using namespace ftxui;
-using namespace std::chrono_literals;
 
 namespace
 {
@@ -27,127 +34,104 @@ namespace
         Failed
     };
 
-    // Shared state between the UI thread and the pump thread.
-    struct Model
+    // Run loop servicing window per pump step (ms). Also paces the main loop.
+    constexpr int kPollMs = 15;
+
+    struct App
     {
-        std::mutex m;
         Stage stage = Stage::Picking;
         std::string status;
-        std::string modelName;
-        std::string fwVersion;
 
+        std::vector<std::string> deviceNames;
+        std::vector<std::string> deviceMacs;
+        int selected = 0;
+
+        bool connectRequested = false; // set by the Connect button
         std::string requestedMac;
-        std::atomic<bool> connectRequested{false};
-        std::atomic<bool> quit{false};
     };
 
-    // Owns the connection and (once connected) the MDRHeadphones device.
-    // This is the ONLY thread that touches libmdr after a connect is requested.
-    void PumpThread(tui::Connection& conn, Model& model, ScreenInteractive& screen)
+    // One step of driving libmdr. Runs on the main thread; conn.Poll() services
+    // the run loop so IOBluetooth callbacks (connect complete, incoming data) fire.
+    void PumpStep(tui::Connection& conn, mdr::MDRHeadphones& device, App& app)
     {
-        mdr::MDRHeadphones device;
-
-        auto setStage = [&](Stage s, std::string status)
+        try
         {
-            std::lock_guard lk(model.m);
-            model.stage = s;
-            model.status = std::move(status);
-        };
+            switch (app.stage)
+            {
+            case Stage::Picking:
+                if (app.connectRequested)
+                {
+                    app.connectRequested = false;
+                    app.stage = Stage::Connecting;
+                    app.status = "Connecting...";
+                    int res = conn.Connect(app.requestedMac, MDR_SERVICE_UUID_XM5);
+                    if (res != MDR_RESULT_OK && res != MDR_RESULT_INPROGRESS)
+                    {
+                        app.stage = Stage::Failed;
+                        app.status = conn.LastError();
+                    }
+                }
+                break;
 
-        while (!model.quit.load())
+            case Stage::Connecting:
+            {
+                int res = conn.Poll(kPollMs); // services run loop; OK once handshake completes
+                if (res == MDR_RESULT_OK)
+                {
+                    device = mdr::MDRHeadphones(conn.raw());
+                    device.Invoke(device.RequestInitV2());
+                    app.stage = Stage::Connected;
+                    app.status = "Connected";
+                }
+                else if (res != MDR_RESULT_INPROGRESS && res != MDR_RESULT_ERROR_TIMEOUT)
+                {
+                    conn.Disconnect();
+                    app.stage = Stage::Failed;
+                    app.status = conn.LastError();
+                }
+                break;
+            }
+
+            case Stage::Connected:
+            {
+                // Service the run loop so incoming RFCOMM data reaches the recv buffer.
+                if (conn.Poll(kPollMs) == MDR_RESULT_ERROR_NET)
+                {
+                    conn.Disconnect();
+                    app.stage = Stage::Failed;
+                    app.status = conn.LastError();
+                    break;
+                }
+
+                int event = device.PollEvents();
+                switch (event)
+                {
+                case MDR_HEADPHONES_TASK_INIT_OK:
+                    device.Invoke(device.RequestSyncV2());
+                    break;
+                case MDR_HEADPHONES_IDLE:
+                    if (device.IsDirty())
+                        device.Invoke(device.RequestCommitV2());
+                    break;
+                case MDR_HEADPHONES_ERROR:
+                    conn.Disconnect();
+                    app.stage = Stage::Failed;
+                    app.status = std::string("Device error: ") + device.GetLastError();
+                    break;
+                default:
+                    break;
+                }
+                break;
+            }
+
+            case Stage::Failed:
+                break;
+            }
+        }
+        catch (const std::exception& e)
         {
-            Stage stage;
-            {
-                std::lock_guard lk(model.m);
-                stage = model.stage;
-            }
-
-            try
-            {
-                switch (stage)
-                {
-                case Stage::Picking:
-                {
-                    if (model.connectRequested.exchange(false))
-                    {
-                        std::string mac;
-                        {
-                            std::lock_guard lk(model.m);
-                            mac = model.requestedMac;
-                        }
-                        setStage(Stage::Connecting, "Connecting...");
-                        int res = conn.Connect(mac, MDR_SERVICE_UUID_XM5);
-                        if (res != MDR_RESULT_OK && res != MDR_RESULT_INPROGRESS)
-                            setStage(Stage::Failed, conn.LastError());
-                        screen.PostEvent(Event::Custom);
-                    }
-                    else
-                    {
-                        std::this_thread::sleep_for(50ms);
-                    }
-                    break;
-                }
-
-                case Stage::Connecting:
-                {
-                    int res = conn.Poll(0);
-                    if (res == MDR_RESULT_OK)
-                    {
-                        device = mdr::MDRHeadphones(conn.raw());
-                        device.Invoke(device.RequestInitV2());
-                        setStage(Stage::Connected, "Connected");
-                    }
-                    else if (res != MDR_RESULT_INPROGRESS && res != MDR_RESULT_ERROR_TIMEOUT)
-                    {
-                        conn.Disconnect();
-                        setStage(Stage::Failed, conn.LastError());
-                    }
-                    screen.PostEvent(Event::Custom);
-                    std::this_thread::sleep_for(30ms);
-                    break;
-                }
-
-                case Stage::Connected:
-                {
-                    int event = device.PollEvents();
-                    switch (event)
-                    {
-                    case MDR_HEADPHONES_TASK_INIT_OK:
-                        // Pull values that the device won't push on its own (battery, etc.)
-                        device.Invoke(device.RequestSyncV2());
-                        break;
-                    case MDR_HEADPHONES_IDLE:
-                        if (device.IsDirty())
-                            device.Invoke(device.RequestCommitV2());
-                        break;
-                    case MDR_HEADPHONES_ERROR:
-                        conn.Disconnect();
-                        setStage(Stage::Failed, std::string("Device error: ") + device.GetLastError());
-                        break;
-                    default:
-                        break;
-                    }
-
-                    {
-                        std::lock_guard lk(model.m);
-                        model.modelName = device.mModelName;
-                        model.fwVersion = device.mFWVersion;
-                    }
-                    screen.PostEvent(Event::Custom);
-                    std::this_thread::sleep_for(30ms);
-                    break;
-                }
-
-                case Stage::Failed:
-                    std::this_thread::sleep_for(100ms);
-                    break;
-                }
-            }
-            catch (const std::exception& e)
-            {
-                setStage(Stage::Failed, e.what());
-                screen.PostEvent(Event::Custom);
-            }
+            app.stage = Stage::Failed;
+            app.status = e.what();
         }
     }
 }
@@ -161,84 +145,67 @@ int main()
         return 1;
     }
 
-    // Initial device scan (main thread; pump thread owns the connection afterwards).
-    std::vector<std::string> deviceNames;
-    std::vector<std::string> deviceMacs;
+    App app;
+    mdr::MDRHeadphones device;
+
     auto rescan = [&]
     {
-        deviceNames.clear();
-        deviceMacs.clear();
+        app.deviceNames.clear();
+        app.deviceMacs.clear();
         for (const auto& d : conn.ListDevices())
         {
-            deviceNames.push_back(d.name.empty() ? d.mac : d.name);
-            deviceMacs.push_back(d.mac);
+            app.deviceNames.push_back(d.name.empty() ? d.mac : d.name);
+            app.deviceMacs.push_back(d.mac);
         }
+        if (app.selected >= static_cast<int>(app.deviceNames.size()))
+            app.selected = 0;
     };
     rescan();
 
-    Model model;
     auto screen = ScreenInteractive::Fullscreen();
 
-    int selected = 0;
-    auto menu = Radiobox(&deviceNames, &selected);
-
+    auto menu = Radiobox(&app.deviceNames, &app.selected);
     auto connectBtn = Button("Connect", [&]
     {
-        std::lock_guard lk(model.m);
-        if (model.stage == Stage::Picking && selected >= 0 &&
-            selected < static_cast<int>(deviceMacs.size()))
+        if (app.stage == Stage::Picking && app.selected >= 0 &&
+            app.selected < static_cast<int>(app.deviceMacs.size()))
         {
-            model.requestedMac = deviceMacs[selected];
-            model.connectRequested = true;
+            app.requestedMac = app.deviceMacs[app.selected];
+            app.connectRequested = true;
         }
     });
     auto rescanBtn = Button("Rescan", [&]
     {
-        std::lock_guard lk(model.m);
-        if (model.stage == Stage::Picking)
+        if (app.stage == Stage::Picking)
             rescan();
     });
-    auto quitBtn = Button("Quit", [&]
-    {
-        model.quit = true;
-        screen.Exit();
-    });
+    auto quitBtn = Button("Quit", [&] { screen.Exit(); });
 
     auto buttons = Container::Horizontal({connectBtn, rescanBtn, quitBtn});
     auto layout = Container::Vertical({menu, buttons});
 
     auto renderer = Renderer(layout, [&]
     {
-        Stage stage;
-        std::string status, modelName, fw;
-        {
-            std::lock_guard lk(model.m);
-            stage = model.stage;
-            status = model.status;
-            modelName = model.modelName;
-            fw = model.fwVersion;
-        }
-
         Element body;
-        switch (stage)
+        switch (app.stage)
         {
         case Stage::Connected:
             body = vbox({
                 text("Connected ✓") | bold | color(Color::Green),
                 separator(),
-                text("Model:    " + (modelName.empty() ? std::string("(querying...)") : modelName)),
-                text("Firmware: " + (fw.empty() ? std::string("(querying...)") : fw)),
+                text("Model:    " + (device.mModelName.empty() ? std::string("(querying...)") : device.mModelName)),
+                text("Firmware: " + (device.mFWVersion.empty() ? std::string("(querying...)") : device.mFWVersion)),
                 text(""),
                 text("Phase 1 OK — protocol engine live. Press q to quit.") | dim,
             });
             break;
         case Stage::Connecting:
-            body = vbox({text("Connecting...") | bold, text(status) | dim});
+            body = vbox({text("Connecting...") | bold, text(app.status) | dim});
             break;
         case Stage::Failed:
             body = vbox({
                 text("Connection failed") | bold | color(Color::Red),
-                text(status) | dim,
+                text(app.status) | dim,
                 separator(),
                 text("Pick a device and Connect to retry:"),
                 menu->Render(),
@@ -247,7 +214,7 @@ int main()
             break;
         case Stage::Picking:
         default:
-            Element list = deviceNames.empty()
+            Element list = app.deviceNames.empty()
                 ? text("No devices. Pair a compatible Sony device, then Rescan.") | dim
                 : menu->Render();
             body = vbox({
@@ -272,17 +239,25 @@ int main()
     {
         if (e == Event::Character('q') || e == Event::Escape)
         {
-            model.quit = true;
             screen.Exit();
             return true;
         }
         return false;
     });
 
-    std::thread pump(PumpThread, std::ref(conn), std::ref(model), std::ref(screen));
-    screen.Loop(root);
+    // Interleave libmdr (main thread) with FTXUI rendering.
+    Loop loop(&screen, root);
+    while (!loop.HasQuitted())
+    {
+        loop.RunOnce();              // handle queued input + render
+        PumpStep(conn, device, app); // drive libmdr; conn.Poll() services the run loop
+        // Connecting/Connected: PumpStep's Poll(kPollMs) paces the loop; keep
+        // redrawing for live values. Idle stages: sleep so we don't busy-spin.
+        if (app.stage == Stage::Connecting || app.stage == Stage::Connected)
+            screen.PostEvent(Event::Custom);
+        else
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
 
-    model.quit = true;
-    pump.join();
     return 0;
 }
