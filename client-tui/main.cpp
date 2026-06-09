@@ -50,6 +50,8 @@ namespace
         bool connectRequested = false; // set by the Connect button
         std::string requestedMac;
 
+        bool initialized = false; // true once the first InitV2 completes (support tables ready)
+
         // Poll-only values (battery) aren't pushed by the device; re-sync periodically.
         std::chrono::steady_clock::time_point lastSync{};
     };
@@ -69,6 +71,7 @@ namespace
                 if (app.connectRequested)
                 {
                     app.connectRequested = false;
+                    app.initialized = false;
                     app.stage = Stage::Connecting;
                     app.status = "Connecting...";
                     int res = conn.Connect(app.requestedMac, MDR_SERVICE_UUID_XM5);
@@ -114,6 +117,7 @@ namespace
                 switch (event)
                 {
                 case MDR_HEADPHONES_TASK_INIT_OK:
+                    app.initialized = true;
                     device.Invoke(device.RequestSyncV2());
                     app.lastSync = std::chrono::steady_clock::now();
                     break;
@@ -205,7 +209,7 @@ int main()
         switch (app.stage)
         {
         case Stage::Connected:
-            if (!device.IsReady())
+            if (!app.initialized)
                 body = vbox({text("Connected ✓ — querying device...") | bold | color(Color::Green)});
             else
                 body = tui::RenderDashboard(device);
@@ -253,6 +257,13 @@ int main()
             screen.Exit();
             return true;
         }
+        // Once connected, the device picker is hidden — don't let its widgets
+        // consume navigation/clicks behind the dashboard. (Phase 3 adds controls here.)
+        if (app.stage == Stage::Connected && (e.is_character() || e.is_mouse() ||
+            e == Event::ArrowUp || e == Event::ArrowDown ||
+            e == Event::ArrowLeft || e == Event::ArrowRight ||
+            e == Event::Return || e == Event::Tab || e == Event::TabReverse))
+            return true;
         return false;
     });
 
