@@ -21,6 +21,7 @@
 
 #include <mdr/Headphones.hpp>
 #include "Connection.hpp"
+#include "Panels.hpp"
 
 using namespace ftxui;
 
@@ -48,7 +49,13 @@ namespace
 
         bool connectRequested = false; // set by the Connect button
         std::string requestedMac;
+
+        // Poll-only values (battery) aren't pushed by the device; re-sync periodically.
+        std::chrono::steady_clock::time_point lastSync{};
     };
+
+    // How often to re-request poll-only state (battery) while connected.
+    constexpr auto kSyncInterval = std::chrono::seconds(5);
 
     // One step of driving libmdr. Runs on the main thread; conn.Poll() services
     // the run loop so IOBluetooth callbacks (connect complete, incoming data) fire.
@@ -108,10 +115,18 @@ namespace
                 {
                 case MDR_HEADPHONES_TASK_INIT_OK:
                     device.Invoke(device.RequestSyncV2());
+                    app.lastSync = std::chrono::steady_clock::now();
                     break;
                 case MDR_HEADPHONES_IDLE:
                     if (device.IsDirty())
+                    {
                         device.Invoke(device.RequestCommitV2());
+                    }
+                    else if (std::chrono::steady_clock::now() - app.lastSync >= kSyncInterval)
+                    {
+                        device.Invoke(device.RequestSyncV2());
+                        app.lastSync = std::chrono::steady_clock::now();
+                    }
                     break;
                 case MDR_HEADPHONES_ERROR:
                     conn.Disconnect();
@@ -190,14 +205,10 @@ int main()
         switch (app.stage)
         {
         case Stage::Connected:
-            body = vbox({
-                text("Connected ✓") | bold | color(Color::Green),
-                separator(),
-                text("Model:    " + (device.mModelName.empty() ? std::string("(querying...)") : device.mModelName)),
-                text("Firmware: " + (device.mFWVersion.empty() ? std::string("(querying...)") : device.mFWVersion)),
-                text(""),
-                text("Phase 1 OK — protocol engine live. Press q to quit.") | dim,
-            });
+            if (!device.IsReady())
+                body = vbox({text("Connected ✓ — querying device...") | bold | color(Color::Green)});
+            else
+                body = tui::RenderDashboard(device);
             break;
         case Stage::Connecting:
             body = vbox({text("Connecting...") | bold, text(app.status) | dim});

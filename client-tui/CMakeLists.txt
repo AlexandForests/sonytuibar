@@ -16,6 +16,7 @@ FetchContent_MakeAvailable(ftxui)
 add_executable(SonyHeadphonesClientTUI
         main.cpp
         Connection.cpp
+        Panels.cpp
 )
 
 target_link_libraries(SonyHeadphonesClientTUI
