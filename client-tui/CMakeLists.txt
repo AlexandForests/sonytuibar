@@ -17,6 +17,7 @@ add_executable(SonyHeadphonesClientTUI
         main.cpp
         Connection.cpp
         Panels.cpp
+        Controls.cpp
 )
 
 target_link_libraries(SonyHeadphonesClientTUI

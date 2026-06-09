@@ -22,6 +22,7 @@
 #include <mdr/Headphones.hpp>
 #include "Connection.hpp"
 #include "Panels.hpp"
+#include "Controls.hpp"
 
 using namespace ftxui;
 
@@ -165,6 +166,7 @@ int main()
     }
 
     App app;
+    tui::ControlState ctrl;
     mdr::MDRHeadphones device;
 
     auto rescan = [&]
@@ -212,7 +214,12 @@ int main()
             if (!app.initialized)
                 body = vbox({text("Connected ✓ — querying device...") | bold | color(Color::Green)});
             else
-                body = tui::RenderDashboard(device);
+                body = vbox({
+                    tui::RenderDashboard(device),
+                    filler(),
+                    separator(),
+                    tui::Footer(device, ctrl),
+                });
             break;
         case Stage::Connecting:
             body = vbox({text("Connecting...") | bold, text(app.status) | dim});
@@ -252,18 +259,27 @@ int main()
 
     auto root = CatchEvent(renderer, [&](const Event& e)
     {
+        if (app.stage == Stage::Connected)
+        {
+            // Controls get first look (e.g. 'y' confirms a pending power-off).
+            if (tui::HandleControl(e, device, ctrl))
+                return true;
+            // Esc cancels a pending confirm rather than quitting.
+            if (e == Event::Character('q') || e == Event::Escape)
+            {
+                screen.Exit();
+                return true;
+            }
+            // The device picker is hidden — don't let its widgets consume
+            // navigation/clicks behind the dashboard.
+            return true;
+        }
+
         if (e == Event::Character('q') || e == Event::Escape)
         {
             screen.Exit();
             return true;
         }
-        // Once connected, the device picker is hidden — don't let its widgets
-        // consume navigation/clicks behind the dashboard. (Phase 3 adds controls here.)
-        if (app.stage == Stage::Connected && (e.is_character() || e.is_mouse() ||
-            e == Event::ArrowUp || e == Event::ArrowDown ||
-            e == Event::ArrowLeft || e == Event::ArrowRight ||
-            e == Event::Return || e == Event::Tab || e == Event::TabReverse))
-            return true;
         return false;
     });
 
