@@ -196,19 +196,20 @@ int main()
 
     auto renderer = Renderer(layout, [&]
     {
+        // Connected: full-bleed btop-style dashboard, no outer chrome.
+        if (app.stage == Stage::Connected && app.initialized)
+            return vbox({
+                tui::RenderDashboard(device),
+                filler(),
+                separator(),
+                tui::Footer(device),
+            });
+
         Element body;
         switch (app.stage)
         {
         case Stage::Connected:
-            if (!app.initialized)
-                body = vbox({text("Connected ✓ — querying device...") | bold | color(Color::Green)});
-            else
-                body = vbox({
-                    tui::RenderDashboard(device),
-                    filler(),
-                    separator(),
-                    tui::Footer(device),
-                });
+            body = vbox({text("Connected ✓ — querying device...") | bold | color(Color::Green)});
             break;
         case Stage::Connecting:
             body = vbox({text("Connecting...") | bold, text(app.status) | dim});
