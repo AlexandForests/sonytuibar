@@ -323,6 +323,8 @@ namespace tui
                 text(" " + std::to_string(vol) + "/30") | size(WIDTH, EQUAL, 6),
             }));
 
+            // Track metadata only arrives if the source relays it over MDR;
+            // macOS doesn't, so only render the rows when something shows up.
             bool playing = d.mPlayPause == v2t1::PlaybackStatus::PLAY;
             if (!d.mPlayTrackTitle.empty() || !d.mPlayTrackArtist.empty())
             {
@@ -332,10 +334,6 @@ namespace tui
                 }));
                 if (!d.mPlayTrackArtist.empty())
                     rows.push_back(text("  " + d.mPlayTrackArtist) | color(kDimText));
-            }
-            else
-            {
-                rows.push_back(text("nothing playing") | color(kDimText));
             }
 
             return Panel("playback", vbox(std::move(rows)), kAccentPlay);
