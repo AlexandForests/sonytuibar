@@ -54,6 +54,55 @@ namespace
         bool initialized = false; // true once the first InitV2 completes (support tables ready)
     };
 
+    // Everything the dashboard displays, flattened for cheap comparison. We only
+    // post a redraw when this changes (or on a slow heartbeat) — re-rendering
+    // every pump iteration burned CPU around the clock.
+    struct ViewState
+    {
+        int batL = -1, batR = -1, batCase = -1;
+        int chgL = -1, chgR = -1, chgCase = -1;
+        bool thrL = false, thrR = false, thrCase = false;
+        bool ncEnabled = false;
+        int ncMode = -1, ambLevel = -1;
+        bool voice = false;
+        int volume = -1, eqPreset = -1, codec = -1, playPause = -1;
+        bool eqAvail = false, upscaling = false;
+        std::vector<int> eqBands;
+        std::string title, artist, model, fw;
+
+        bool operator==(const ViewState&) const = default;
+    };
+
+    ViewState Snapshot(const mdr::MDRHeadphones& d)
+    {
+        ViewState s;
+        s.batL = d.mBatteryL.level;
+        s.batR = d.mBatteryR.level;
+        s.batCase = d.mBatteryCase.level;
+        s.chgL = static_cast<int>(d.mBatteryL.charging);
+        s.chgR = static_cast<int>(d.mBatteryR.charging);
+        s.chgCase = static_cast<int>(d.mBatteryCase.charging);
+        s.thrL = d.mBatteryL.threshold;
+        s.thrR = d.mBatteryR.threshold;
+        s.thrCase = d.mBatteryCase.threshold;
+        s.ncEnabled = d.mNcAsmEnabled.current;
+        s.ncMode = static_cast<int>(d.mNcAsmMode.current);
+        s.ambLevel = d.mNcAsmAmbientLevel.current;
+        s.voice = d.mNcAsmFocusOnVoice.current;
+        s.volume = d.mPlayVolume.current;
+        s.eqPreset = static_cast<int>(d.mEqPresetId.current);
+        s.codec = static_cast<int>(d.mAudioCodec);
+        s.playPause = static_cast<int>(d.mPlayPause);
+        s.eqAvail = d.mEqAvailable.current;
+        s.upscaling = d.mUpscalingEnabled.current;
+        s.eqBands = d.mEqConfig.current;
+        s.title = d.mPlayTrackTitle;
+        s.artist = d.mPlayTrackArtist;
+        s.model = d.mModelName;
+        s.fw = d.mFWVersion;
+        return s;
+    }
+
     // One step of driving libmdr. Runs on the main thread; conn.Poll() services
     // the run loop so IOBluetooth callbacks (connect complete, incoming data) fire.
     void PumpStep(tui::Connection& conn, mdr::MDRHeadphones& device, App& app)
@@ -274,16 +323,36 @@ int main()
 
     // Interleave libmdr (main thread) with FTXUI rendering.
     Loop loop(&screen, root);
+    ViewState lastView;
+    auto lastDraw = std::chrono::steady_clock::now();
     while (!loop.HasQuitted())
     {
         loop.RunOnce();              // handle queued input + render
         PumpStep(conn, device, app); // drive libmdr; conn.Poll() services the run loop
-        // Connecting/Connected: PumpStep's Poll(kPollMs) paces the loop; keep
-        // redrawing for live values. Idle stages: sleep so we don't busy-spin.
-        if (app.stage == Stage::Connecting || app.stage == Stage::Connected)
-            screen.PostEvent(Event::Custom);
+        // Connecting/Connected: PumpStep's Poll(kPollMs) paces the loop.
+        // Idle stages: sleep so we don't busy-spin.
+        if (app.stage == Stage::Connecting)
+        {
+            screen.PostEvent(Event::Custom); // animate status until connected
+        }
+        else if (app.stage == Stage::Connected)
+        {
+            // Redraw only when displayed state changed (push notification,
+            // committed control, init progress) or on a 500ms heartbeat.
+            // Keypresses trigger FTXUI redraws on their own.
+            auto now = std::chrono::steady_clock::now();
+            ViewState view = Snapshot(device);
+            if (view != lastView || now - lastDraw >= std::chrono::milliseconds(500))
+            {
+                lastView = std::move(view);
+                lastDraw = now;
+                screen.PostEvent(Event::Custom);
+            }
+        }
         else
+        {
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
     }
 
     return 0;

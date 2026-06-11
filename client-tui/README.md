@@ -22,11 +22,30 @@ Linux additionally needs `libbluetooth-dev` and `libdbus-1-dev`.
 Pair the headphones with the OS first, then:
 
 ```sh
-./build/client-tui/SonyHeadphonesClientTUI
+./build/client-tui/sonytui
 ```
 
 Pick the device and Connect. On macOS the first run may prompt for
 Bluetooth permission for your terminal app.
+
+## Install (macOS)
+
+```sh
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DMDR_ENABLE_CODEGEN=OFF -DMDR_BUILD_CLIENT=OFF
+cmake --build build-release --target SonyHeadphonesClientTUI
+./scripts/install-macos.sh
+```
+
+This installs `sonytui` to `/usr/local/bin` (sudo for the copy) and a
+double-clickable **Sony Headphones TUI.app** launcher into `~/Applications`
+that opens Terminal running the TUI. Permissions (Bluetooth, audio capture)
+attach to Terminal, not the bundle.
+
+## Install (Linux — planned)
+
+Deferred. Intended shape for Arch: a PKGBUILD building `sonytui` plus a
+`.desktop` entry (`Exec=xdg-terminal-exec sonytui`, falling back to
+`kitty -e sonytui`) so it shows up in launchers under Hyprland.
 
 ## Keybinds
 

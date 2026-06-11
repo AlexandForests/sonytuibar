@@ -532,6 +532,9 @@ cmake-build*/
 # macOS stuff
 .DS_Store
 
+# Release build dir (client-tui packaging)
+build-release/
+
 # Visual Studio Generator files
 *.sln
 *.vcxproj

@@ -32,3 +32,8 @@ target_compile_definitions(SonyHeadphonesClientTUI PRIVATE
         -DCLIENT_TUI_VERSION="${CLIENT_TUI_VERSION}"
         -DMDR_PLATFORM_OS="${MDR_PLATFORM_OS}"
 )
+
+# Typable binary name; the CMake target keeps its descriptive name.
+set_target_properties(SonyHeadphonesClientTUI PROPERTIES OUTPUT_NAME sonytui)
+
+install(TARGETS SonyHeadphonesClientTUI RUNTIME DESTINATION bin)
