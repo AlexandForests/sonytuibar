@@ -177,6 +177,7 @@ namespace tui
         items.push_back(key("- +", "vol"));
         if (d.mEqAvailable.current) items.push_back(key(", .", "eq"));
         if (Has(d, F1::POWER_OFF)) items.push_back(key("o", "off"));
+        items.push_back(key("r", "refresh"));
         items.push_back(key("q", "quit"));
 
         return hbox(std::move(items));

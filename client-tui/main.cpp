@@ -51,14 +51,9 @@ namespace
         bool connectRequested = false; // set by the Connect button
         std::string requestedMac;
 
-        bool initialized = false; // true once the first InitV2 completes (support tables ready)
-
-        // Poll-only values (battery) aren't pushed by the device; re-sync periodically.
-        std::chrono::steady_clock::time_point lastSync{};
+        bool initialized = false;   // true once the first InitV2 completes (support tables ready)
+        bool syncRequested = false; // set by the 'r' refresh key
     };
-
-    // How often to re-request poll-only state (battery) while connected.
-    constexpr auto kSyncInterval = std::chrono::seconds(5);
 
     // One step of driving libmdr. Runs on the main thread; conn.Poll() services
     // the run loop so IOBluetooth callbacks (connect complete, incoming data) fire.
@@ -119,18 +114,18 @@ namespace
                 {
                 case MDR_HEADPHONES_TASK_INIT_OK:
                     app.initialized = true;
-                    device.Invoke(device.RequestSyncV2());
-                    app.lastSync = std::chrono::steady_clock::now();
+                    device.Invoke(device.RequestSyncV2()); // one sync in clean seq state
                     break;
                 case MDR_HEADPHONES_IDLE:
+                    // No auto-sync: libmdr derives the outgoing seq from the last
+                    // received packet, so a sync racing the device's post-change
+                    // notifications desyncs and hangs. Sync only on explicit request.
                     if (device.IsDirty())
-                    {
                         device.Invoke(device.RequestCommitV2());
-                    }
-                    else if (std::chrono::steady_clock::now() - app.lastSync >= kSyncInterval)
+                    else if (app.syncRequested)
                     {
+                        app.syncRequested = false;
                         device.Invoke(device.RequestSyncV2());
-                        app.lastSync = std::chrono::steady_clock::now();
                     }
                     break;
                 case MDR_HEADPHONES_ERROR:
@@ -214,22 +209,12 @@ int main()
             if (!app.initialized)
                 body = vbox({text("Connected ✓ — querying device...") | bold | color(Color::Green)});
             else
-            {
-                // TEMP diagnostics line (Phase 3 debugging — removed in Phase 4 polish).
-                std::string diag = std::string("[") + (device.IsReady() ? "idle" : "BUSY") + "]"
-                    + " dirty=" + (device.IsDirty() ? "Y" : "n")
-                    + " eq=" + std::to_string(static_cast<int>(device.mEqPresetId.desired))
-                    + "->" + std::to_string(static_cast<int>(device.mEqPresetId.current))
-                    + " bands=" + std::to_string(device.mEqConfig.current.size())
-                    + " err=" + device.GetLastError();
                 body = vbox({
                     tui::RenderDashboard(device),
                     filler(),
                     separator(),
-                    text(diag) | dim,
                     tui::Footer(device, ctrl),
                 });
-            }
             break;
         case Stage::Connecting:
             body = vbox({text("Connecting...") | bold, text(app.status) | dim});
@@ -271,6 +256,12 @@ int main()
     {
         if (app.stage == Stage::Connected)
         {
+            // 'r' re-syncs poll-only state (battery) on demand.
+            if (e == Event::Character('r'))
+            {
+                app.syncRequested = true;
+                return true;
+            }
             // Controls get first look (e.g. 'y' confirms a pending power-off).
             if (tui::HandleControl(e, device, ctrl))
                 return true;
