@@ -386,7 +386,11 @@ namespace mdr
         String mLastError = "N/A";
 
         std::deque<UInt8> mRecvBuf, mSendBuf;
-        MDRCommandSeqNumber mSeqNumber{0};
+        MDRCommandSeqNumber mSeqNumber{0}; // seq of the last *received* frame (for ACKing it)
+        // Our own outgoing-frame seq, toggled per ACK. Must NOT be derived from
+        // received frames: unsolicited device notifications would otherwise desync it,
+        // and the device silently drops the next host command as a stale retransmit.
+        MDRCommandSeqNumber mTxSeq{0};
 
         MDRTask mTask;
         Array<Awaiter, AWAIT_NUM_TYPES> mAwaiters{};
@@ -430,7 +434,7 @@ namespace mdr
             MDRDataType type = MDRTraits<T>::kDataType;
             T::Validate(command); // <- Throws if something's bad
             size_t size = T::Serialize(command, buf, kMDRMaxPacketSize);
-            SendCommandImpl({buf, buf + size}, type, mSeqNumber);
+            SendCommandImpl({buf, buf + size}, type, mTxSeq);
         }
 
         /**

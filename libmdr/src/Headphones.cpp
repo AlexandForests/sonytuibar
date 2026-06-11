@@ -212,6 +212,11 @@ namespace mdr
 
     void MDRHeadphones::HandleAck(MDRCommandSeqNumber)
     {
+        // Our frame was accepted: advance the outgoing seq so the next host
+        // command alternates. Toggle BEFORE Awake — Awake resumes the awaiting
+        // coroutine synchronously, which sends the next command right here.
+        // Retransmits (resend on ACK timeout) keep the same seq, as required.
+        mTxSeq = 1 - mTxSeq;
         Awake(AWAIT_ACK);
     }
 }
