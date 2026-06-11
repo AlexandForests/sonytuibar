@@ -77,10 +77,10 @@ namespace tui
             }
         }
 
-        constexpr std::array<v2t1::EqPresetId, 16> kEqPresets = {
-            v2t1::EqPresetId::OFF, v2t1::EqPresetId::ROCK, v2t1::EqPresetId::POP,
-            v2t1::EqPresetId::JAZZ, v2t1::EqPresetId::DANCE, v2t1::EqPresetId::EDM,
-            v2t1::EqPresetId::R_AND_B_HIP_HOP, v2t1::EqPresetId::ACOUSTIC,
+        // Only the presets the WH-1000XM5 actually applies (IDs 0x10..0x17).
+        // The older Rock/Pop/Jazz... set (0x01..0x07) is rejected by the device
+        // firmware — it echoes the current preset back — so we don't offer them.
+        constexpr std::array<v2t1::EqPresetId, 8> kEqPresets = {
             v2t1::EqPresetId::BRIGHT, v2t1::EqPresetId::EXCITED, v2t1::EqPresetId::MELLOW,
             v2t1::EqPresetId::RELAXED, v2t1::EqPresetId::VOCAL, v2t1::EqPresetId::TREBLE,
             v2t1::EqPresetId::BASS, v2t1::EqPresetId::SPEECH,
@@ -89,24 +89,18 @@ namespace tui
         void CycleEq(mdr::MDRHeadphones& d, int dir)
         {
             auto it = std::find(kEqPresets.begin(), kEqPresets.end(), d.mEqPresetId.desired);
-            int idx = (it == kEqPresets.end()) ? 0 : static_cast<int>(it - kEqPresets.begin());
             int n = static_cast<int>(kEqPresets.size());
-            idx = (idx + dir + n) % n;
+            int idx;
+            if (it == kEqPresets.end())
+                idx = (dir > 0) ? 0 : n - 1; // unknown/unsupported current -> first valid
+            else
+                idx = (static_cast<int>(it - kEqPresets.begin()) + dir + n) % n;
             d.mEqPresetId.desired = kEqPresets[idx];
         }
     }
 
-    bool HandleControl(const Event& e, mdr::MDRHeadphones& d, ControlState& cs)
+    bool HandleControl(const Event& e, mdr::MDRHeadphones& d)
     {
-        // Power-off confirmation captures all input first.
-        if (cs.confirmPowerOff)
-        {
-            if (e == Event::Character('y') || e == Event::Character('Y'))
-                d.mShutdown.desired = true;
-            cs.confirmPowerOff = false; // any other key cancels
-            return true;
-        }
-
         // Volume -/+
         if (e == Event::Character('-') || e == Event::Character('_'))
         {
@@ -150,22 +144,11 @@ namespace tui
             return true;
         }
 
-        // Power off (with confirm)
-        if (e == Event::Character('o') && Has(d, F1::POWER_OFF))
-        {
-            cs.confirmPowerOff = true;
-            return true;
-        }
-
         return false;
     }
 
-    Element Footer(const mdr::MDRHeadphones& d, const ControlState& cs)
+    Element Footer(const mdr::MDRHeadphones& d)
     {
-        if (cs.confirmPowerOff)
-            return text(" Power off the headphones? y = yes, any other key = cancel ") |
-                   bold | color(Color::Black) | bgcolor(Color::Red);
-
         auto key = [](const std::string& k, const std::string& label)
         {
             return hbox({text(k) | bold | color(Color::Cyan), text(":" + label + "  ") | dim});
@@ -176,7 +159,6 @@ namespace tui
         if (SupportsAsm(d)) items.push_back(key("[ ]", "ambient"));
         items.push_back(key("- +", "vol"));
         if (d.mEqAvailable.current) items.push_back(key(", .", "eq"));
-        if (Has(d, F1::POWER_OFF)) items.push_back(key("o", "off"));
         items.push_back(key("r", "refresh"));
         items.push_back(key("q", "quit"));
 

@@ -161,7 +161,6 @@ int main()
     }
 
     App app;
-    tui::ControlState ctrl;
     mdr::MDRHeadphones device;
 
     auto rescan = [&]
@@ -213,7 +212,7 @@ int main()
                     tui::RenderDashboard(device),
                     filler(),
                     separator(),
-                    tui::Footer(device, ctrl),
+                    tui::Footer(device),
                 });
             break;
         case Stage::Connecting:
@@ -262,8 +261,7 @@ int main()
                 app.syncRequested = true;
                 return true;
             }
-            // Controls get first look (e.g. 'y' confirms a pending power-off).
-            if (tui::HandleControl(e, device, ctrl))
+            if (tui::HandleControl(e, device))
                 return true;
             // Esc cancels a pending confirm rather than quitting.
             if (e == Event::Character('q') || e == Event::Escape)
