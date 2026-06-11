@@ -51,8 +51,7 @@ namespace
         bool connectRequested = false; // set by the Connect button
         std::string requestedMac;
 
-        bool initialized = false;   // true once the first InitV2 completes (support tables ready)
-        bool syncRequested = false; // set by the 'r' refresh key
+        bool initialized = false; // true once the first InitV2 completes (support tables ready)
     };
 
     // One step of driving libmdr. Runs on the main thread; conn.Poll() services
@@ -117,16 +116,12 @@ namespace
                     device.Invoke(device.RequestSyncV2()); // one sync in clean seq state
                     break;
                 case MDR_HEADPHONES_IDLE:
-                    // No auto-sync: libmdr derives the outgoing seq from the last
-                    // received packet, so a sync racing the device's post-change
-                    // notifications desyncs and hangs. Sync only on explicit request.
+                    // No periodic poll: battery refreshes via device push
+                    // notifications (PollEvents folds them into .current). Polling
+                    // POWER_GET_STATUS races those notifications and desyncs the
+                    // protocol seq, hanging the link. We only commit dirty props.
                     if (device.IsDirty())
                         device.Invoke(device.RequestCommitV2());
-                    else if (app.syncRequested)
-                    {
-                        app.syncRequested = false;
-                        device.Invoke(device.RequestSyncV2());
-                    }
                     break;
                 case MDR_HEADPHONES_ERROR:
                     conn.Disconnect();
@@ -255,12 +250,6 @@ int main()
     {
         if (app.stage == Stage::Connected)
         {
-            // 'r' re-syncs poll-only state (battery) on demand.
-            if (e == Event::Character('r'))
-            {
-                app.syncRequested = true;
-                return true;
-            }
             if (tui::HandleControl(e, device))
                 return true;
             // Esc cancels a pending confirm rather than quitting.

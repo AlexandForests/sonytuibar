@@ -77,10 +77,11 @@ namespace tui
             }
         }
 
-        // Only the presets the WH-1000XM5 actually applies (IDs 0x10..0x17).
+        // Only the presets the WH-1000XM5 actually applies: OFF plus IDs 0x10..0x17.
         // The older Rock/Pop/Jazz... set (0x01..0x07) is rejected by the device
         // firmware — it echoes the current preset back — so we don't offer them.
-        constexpr std::array<v2t1::EqPresetId, 8> kEqPresets = {
+        constexpr std::array<v2t1::EqPresetId, 9> kEqPresets = {
+            v2t1::EqPresetId::OFF,
             v2t1::EqPresetId::BRIGHT, v2t1::EqPresetId::EXCITED, v2t1::EqPresetId::MELLOW,
             v2t1::EqPresetId::RELAXED, v2t1::EqPresetId::VOCAL, v2t1::EqPresetId::TREBLE,
             v2t1::EqPresetId::BASS, v2t1::EqPresetId::SPEECH,
@@ -159,7 +160,6 @@ namespace tui
         if (SupportsAsm(d)) items.push_back(key("[ ]", "ambient"));
         items.push_back(key("- +", "vol"));
         if (d.mEqAvailable.current) items.push_back(key(", .", "eq"));
-        items.push_back(key("r", "refresh"));
         items.push_back(key("q", "quit"));
 
         return hbox(std::move(items));
