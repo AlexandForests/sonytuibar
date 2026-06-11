@@ -279,7 +279,9 @@ namespace tui
                 constexpr int kBarPx = 6, kGapPx = 2, kColPx = kBarPx + kGapPx; // 4 cells per band
                 constexpr int kHeightPx = 24;                                  // 6 cell rows
                 const int span = hi - lo;
-                auto eq = canvas(n * kColPx, kHeightPx, [&](Canvas& cv)
+                // canvas() invokes the draw fn lazily at screen-render time, after
+                // this frame returns — capture by value or the locals dangle.
+                auto eq = canvas(n * kColPx, kHeightPx, [bands, n, lo, span](Canvas& cv)
                 {
                     for (int i = 0; i < n; ++i)
                     {
