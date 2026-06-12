@@ -31,7 +31,8 @@ fi
 APP="$HOME/Applications/Sony Headphones TUI.app"
 echo "Assembling $APP"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp "$ROOT/client-tui/resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -41,6 +42,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundleName</key><string>Sony Headphones TUI</string>
     <key>CFBundleIdentifier</key><string>local.sonyheadphones.tui</string>
     <key>CFBundleExecutable</key><string>launcher</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
 </dict>

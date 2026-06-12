@@ -9,6 +9,12 @@ add_executable(SonyHeadphonesMenuBar MACOSX_BUNDLE
         ${CMAKE_CURRENT_SOURCE_DIR}/../client-tui/Connection.cpp
 )
 
+# App icon: copy the .icns into the bundle's Resources/ (Info.plist points at it
+# via MACOSX_BUNDLE_ICON_FILE below).
+set(MENUBAR_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/AppIcon.icns)
+target_sources(SonyHeadphonesMenuBar PRIVATE ${MENUBAR_ICON})
+set_source_files_properties(${MENUBAR_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+
 target_include_directories(SonyHeadphonesMenuBar PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../client-tui
 )
@@ -31,6 +37,7 @@ target_compile_definitions(SonyHeadphonesMenuBar PRIVATE
 
 set_target_properties(SonyHeadphonesMenuBar PROPERTIES
         OUTPUT_NAME "Sony Headphones Bar"
+        MACOSX_BUNDLE_ICON_FILE "AppIcon.icns"
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in
         MACOSX_BUNDLE_BUNDLE_NAME "Sony Headphones Bar"
         MACOSX_BUNDLE_GUI_IDENTIFIER "local.sonyheadphones.menubar"
