@@ -214,6 +214,7 @@ int main()
     tui::AudioTap tap;            // system-audio visualizer, off by default
     tui::SpectrumAnalyzer analyzer;
     std::vector<float> vizBands;
+    bool vizDenied = false; // tap creation failed (no audio-capture permission)
 #endif
 
     auto rescan = [&]
@@ -261,9 +262,18 @@ int main()
             Element footer = tui::Footer(device);
 #ifdef TUI_HAS_AUDIO_TAP
             if (tap.Active())
+            {
                 spectrum = &vizBands;
+                vizDenied = false;
+            }
             footer = hbox({footer, text("v") | bold | color(Color::Cyan),
                            text(":viz  ") | dim});
+            if (vizDenied)
+                footer = hbox({footer,
+                               text("viz: no audio-capture permission — grant this "
+                                    "terminal System Audio Recording in Privacy & "
+                                    "Security, then relaunch it") |
+                                   color(Color::Red)});
 #endif
             return vbox({
                 tui::RenderDashboard(device, spectrum),
@@ -323,10 +333,12 @@ int main()
             if (e == Event::Character('v'))
             {
                 // First-ever Start() triggers the System Audio Recording prompt.
+                // Terminals without a usage-description plist key (Ghostty,
+                // WezTerm, ...) get silently denied — surface that.
                 if (tap.Active())
                     tap.Stop();
                 else
-                    tap.Start();
+                    vizDenied = !tap.Start();
                 return true;
             }
 #endif

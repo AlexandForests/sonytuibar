@@ -21,6 +21,14 @@ CLI binary the prompt is attributed to the **terminal app**, not `sonytui`
 (same as our Bluetooth permission). Managed in System Settings → Privacy &
 Security → Screen & System Audio Recording.
 
+Device-tested caveat: macOS only *shows* the prompt if the responsible app
+declares `NSAudioCaptureUsageDescription` in its Info.plist. Terminal.app
+does; **Ghostty and WezTerm don't** (as of this writing), so the tap is
+silently denied there. Workaround: add the terminal manually under System
+Settings → Privacy & Security → Screen & System Audio Recording ("System
+Audio Recording Only" section, + button), relaunch the terminal, press `v`
+again. The TUI shows a red footer notice when the tap is denied.
+
 **Threading:** the IO thread writes only a lock-free ring buffer
 (single-writer/single-reader, tearing harmless for visualization). libmdr and
 FTXUI stay strictly on the main thread — the design constraint from Phase 1 is

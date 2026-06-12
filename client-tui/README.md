@@ -55,7 +55,7 @@ Deferred. Intended shape for Arch: a PKGBUILD building `sonytui` plus a
 | `[` `]` | ambient sound level − / + (1–20) |
 | `-` `+` | volume − / + (0–30) |
 | `,` `.` | EQ preset prev / next |
-| `v` | toggle system-audio visualizer (macOS; first use prompts for System Audio Recording) |
+| `v` | toggle system-audio visualizer (macOS; first use prompts for System Audio Recording — Terminal.app only; Ghostty/WezTerm need a manual grant, see docs/visualizer.md) |
 | `q` / Esc | quit |
 
 All controls are support-gated: keys (and their footer hints) only exist if
