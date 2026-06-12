@@ -312,7 +312,27 @@ namespace tui
             return Panel("equalizer", vbox(std::move(rows)), kAccentEq);
         }
 
-        Element PlaybackPanel(const mdr::MDRHeadphones& d)
+        // Audio-tap spectrum as braille bars (blue→pink across the bands).
+        Element SpectrumCanvas(const std::vector<float>& bands)
+        {
+            const int n = static_cast<int>(bands.size());
+            constexpr int kColPx = 3, kHeightPx = 24; // 2px bar + 1px gap, 6 cell rows
+            // canvas() draws lazily at screen-render time — capture by value.
+            return canvas(n * kColPx, kHeightPx, [bands, n](Canvas& cv)
+            {
+                for (int i = 0; i < n; ++i)
+                {
+                    int h = static_cast<int>(std::lround(bands[i] * kHeightPx));
+                    Color c = Color::Interpolate(
+                        n > 1 ? static_cast<float>(i) / (n - 1) : 0.0f, kAccentPlay, kAccentHeader);
+                    for (int x = i * kColPx; x < i * kColPx + 2; ++x)
+                        for (int y = kHeightPx - h; y < kHeightPx; ++y)
+                            cv.DrawPoint(x, y, true, c);
+                }
+            });
+        }
+
+        Element PlaybackPanel(const mdr::MDRHeadphones& d, const std::vector<float>* spectrum)
         {
             Elements rows;
 
@@ -336,6 +356,12 @@ namespace tui
                     rows.push_back(text("  " + d.mPlayTrackArtist) | color(kDimText));
             }
 
+            if (spectrum && !spectrum->empty())
+            {
+                rows.push_back(filler());
+                rows.push_back(SpectrumCanvas(*spectrum) | hcenter);
+            }
+
             return Panel("playback", vbox(std::move(rows)), kAccentPlay);
         }
 
@@ -349,14 +375,14 @@ namespace tui
         }
     }
 
-    Element RenderDashboard(const mdr::MDRHeadphones& d)
+    Element RenderDashboard(const mdr::MDRHeadphones& d, const std::vector<float>* spectrum)
     {
         Elements rows;
         rows.push_back(HeaderPanel(d));
 
         if (Element r1 = Row(BatteryPanel(d), NcAsmPanel(d)))
             rows.push_back(r1);
-        if (Element r2 = Row(EqPanel(d), PlaybackPanel(d)))
+        if (Element r2 = Row(EqPanel(d), PlaybackPanel(d, spectrum)))
             rows.push_back(r2);
 
         return vbox(std::move(rows));

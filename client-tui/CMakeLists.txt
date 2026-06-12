@@ -33,6 +33,23 @@ target_compile_definitions(SonyHeadphonesClientTUI PRIVATE
         -DMDR_PLATFORM_OS="${MDR_PLATFORM_OS}"
 )
 
+# macOS-only system-audio visualizer (CoreAudio process tap + vDSP FFT).
+# .mm compiles under the CXX rule like libmdr's PlatformMacOS.mm — clang
+# picks ObjC++ from the extension; no OBJCXX language needed.
+if (MDR_PLATFORM_OS STREQUAL "MACOS")
+    target_sources(SonyHeadphonesClientTUI PRIVATE AudioTap_macOS.mm)
+    set_source_files_properties(AudioTap_macOS.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_compile_definitions(SonyHeadphonesClientTUI PRIVATE TUI_HAS_AUDIO_TAP)
+    find_library(COREAUDIO_FRAMEWORK CoreAudio REQUIRED)
+    find_library(ACCELERATE_FRAMEWORK Accelerate REQUIRED)
+    find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    target_link_libraries(SonyHeadphonesClientTUI PRIVATE
+            ${COREAUDIO_FRAMEWORK}
+            ${ACCELERATE_FRAMEWORK}
+            ${FOUNDATION_FRAMEWORK}
+    )
+endif ()
+
 # Typable binary name; the CMake target keeps its descriptive name.
 set_target_properties(SonyHeadphonesClientTUI PROPERTIES OUTPUT_NAME sonytui)
 

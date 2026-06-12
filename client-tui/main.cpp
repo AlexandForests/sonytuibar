@@ -23,6 +23,9 @@
 #include "Connection.hpp"
 #include "Panels.hpp"
 #include "Controls.hpp"
+#ifdef TUI_HAS_AUDIO_TAP
+#include "AudioTap_macOS.hpp"
+#endif
 
 using namespace ftxui;
 
@@ -207,6 +210,12 @@ int main()
     App app;
     mdr::MDRHeadphones device;
 
+#ifdef TUI_HAS_AUDIO_TAP
+    tui::AudioTap tap;            // system-audio visualizer, off by default
+    tui::SpectrumAnalyzer analyzer;
+    std::vector<float> vizBands;
+#endif
+
     auto rescan = [&]
     {
         app.deviceNames.clear();
@@ -247,12 +256,22 @@ int main()
     {
         // Connected: full-bleed btop-style dashboard, no outer chrome.
         if (app.stage == Stage::Connected && app.initialized)
+        {
+            const std::vector<float>* spectrum = nullptr;
+            Element footer = tui::Footer(device);
+#ifdef TUI_HAS_AUDIO_TAP
+            if (tap.Active())
+                spectrum = &vizBands;
+            footer = hbox({footer, text("v") | bold | color(Color::Cyan),
+                           text(":viz  ") | dim});
+#endif
             return vbox({
-                tui::RenderDashboard(device),
+                tui::RenderDashboard(device, spectrum),
                 filler(),
                 separator(),
-                tui::Footer(device),
+                footer,
             });
+        }
 
         Element body;
         switch (app.stage)
@@ -300,6 +319,17 @@ int main()
     {
         if (app.stage == Stage::Connected)
         {
+#ifdef TUI_HAS_AUDIO_TAP
+            if (e == Event::Character('v'))
+            {
+                // First-ever Start() triggers the System Audio Recording prompt.
+                if (tap.Active())
+                    tap.Stop();
+                else
+                    tap.Start();
+                return true;
+            }
+#endif
             if (tui::HandleControl(e, device))
                 return true;
             // Esc cancels a pending confirm rather than quitting.
@@ -340,9 +370,17 @@ int main()
             // Redraw only when displayed state changed (push notification,
             // committed control, init progress) or on a 500ms heartbeat.
             // Keypresses trigger FTXUI redraws on their own.
+            auto heartbeat = std::chrono::milliseconds(500);
+#ifdef TUI_HAS_AUDIO_TAP
+            if (tap.Active())
+            {
+                vizBands = analyzer.Compute(tap);
+                heartbeat = std::chrono::milliseconds(33); // ~30fps while visualizing
+            }
+#endif
             auto now = std::chrono::steady_clock::now();
             ViewState view = Snapshot(device);
-            if (view != lastView || now - lastDraw >= std::chrono::milliseconds(500))
+            if (view != lastView || now - lastDraw >= heartbeat)
             {
                 lastView = std::move(view);
                 lastDraw = now;
