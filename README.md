@@ -1,92 +1,78 @@
-SonyHeadphonesClient
-===
+# sonytuibar
 
-A spiritual successor to  [Plutoberth's original SonyHeadphonesClient](https://github.com/Plutoberth/SonyHeadphonesClient) - now with standardized support for newer devices and more platforms.
+A btop-style terminal client and a native macOS menu bar app for Sony WH-1000XM5 headphones.
 
-There's no release build yet - but you can always grab the latest [nightly builds](https://nightly.link/mos9527/SonyHeadphonesClient/workflows/cmake/rewrite?preview), or use the [Web Version](#notes-on-web-platform).
+![sonytui](assets/sonytui.png)
 
-[![Build](https://github.com/mos9527/sonyheadphonesclient/actions/workflows/cmake.yml/badge.svg)](https://github.com/mos9527/SonyHeadphonesClient/actions/workflows/cmake.yml) 
-[![Nightly Builds](https://img.shields.io/badge/rewrite-builds-cyan)](https://nightly.link/mos9527/SonyHeadphonesClient/workflows/cmake/rewrite?preview)
+A modified version of [Plutoberth's original SonyHeadphonesClient](https://github.com/Plutoberth/SonyHeadphonesClient)
+and [mos9527 & Amr Satrio's SonyHeadphonesClient rewrite](https://github.com/mos9527/SonyHeadphonesClient) —
+made for my specific needs and platforms.
+
+I'll keep updating it as I work on it, but it's been working well for me, so I'll probably
+leave it as-is for a while.
 
 ## Roadmap
-This brach is expected to be merged/released once the following features have been implemented.
-- [ ] Support for legacy (`v1` protocol) devices, e.g. WH-1000XM4, WH-1000XM3
-- [x] Native macOS platform support
 
-## Compatiblity
+- Linux support + Wayland bar (Waybar / Hyprland module)
+- Legacy (`v1` protocol) device support — WH-1000XM4 / XM3
 
-The following platforms (applies to `libmdr`, `client`) are *natively* supported with first-party effort.
+## Compatibility
 
-| Platform         | Support Status | Maintainers          |
-|------------------|----------------|----------------------|
-| Windows          | Full Support   | @mos9527, @Amrsatrio |
-| Linux            | Full Support   | @mos9527             |
-| macOS            | Full Support   | @mos9527             |
-| Web (Emscripten) | Full Support   | @mos9527             |
+- macOS — terminal (TUI)
+- macOS — menu bar app
 
-For device support, refer to `docs/device-support` to check. If the feature support status for your own device is missing/incorrect/untested here, feel free to submit an [Issue](https://github.com/mos9527/SonyHeadphonesClient/issues/new) so we can work on it!
+---
 
-## Notes on Web Platform
+> Everything below this line is maintainer/developer notes.
 
-The client app is available as a Progressive Web App with exact UI/Feature parity seen in other platforms.
+## Install & use (macOS)
 
-**Live version is available** at: https://mos9527.com/SonyHeadphonesClient/
+Build the release binaries, then run the install script:
 
-A [Web Serial](https://caniuse.com/wf-serial) supporting browser is required - with a minor exception of Chrome on Android where [Web serial over Bluetooth on Android](https://cr-status.appspot.com/feature/5139978918821888) is supported as of Android build 138. You can expect the app to work on all reasonably new Desktop Chrome browsers, and the latest Android Chrome builds.
-
-As always, status reports are welcome - please do submit an Issue if your browser supports the Web version of the client app.
-
-## For Developers
-
-We have extensive documentations available in the source files. Moreover, refer to the respective README files in each source folder to understand what they do!
-
-A C++20 compliant compiler is required. GCC 14, Clang 21 and MSVC 19 has been used for development and are guanrateed to be supported.
-
-### Building (Regular CMake)
-This is no different from your regular CMake projects.
-Third-party dependencies (see `contrib`) are managed by CMake's `FetchContent` and are always statically linked, so no worries - Expect things to *just work*.
-
-**For Developers:** See also `tooling` for codegen dependencies.
-#### Building on Linux
-You need DBus and BlueZ development packages installed.
-- Debian (Ubuntu): `sudo apt install libbluetooth-dev libdbus-1-dev`
-- Fedora: `sudo dnf install bluez-libs-devel dbus-devel`
-- Arch Linux: `sudo pacman -S bluez dbus`
-
-**For Developers:** You may want to have `bluez-tools`/`bluez-utils` installed for testing.
-#### Example
-```bash
-mkdir build
-cd build
-cmake ..
-cmake --build . --target SonyHeadphonesClient
+```sh
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DMDR_ENABLE_CODEGEN=OFF -DMDR_BUILD_CLIENT=OFF
+cmake --build build-release --target SonyHeadphonesClientTUI SonyHeadphonesMenuBar
+./scripts/install-macos.sh
 ```
 
-### Building (emscripten)
-- Install the SDK with `emsdk` and verify your installation - https://emscripten.org/docs/getting_started/downloads.html
-- Run `emcmake cmake ...` in place of configuration.
-  - Or, set up CMake Toolchain variables manually with e.g. 
-  ```-DCMAKE_TOOLCHAIN_FILE=/usr/lib/emsdk/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake -DCMAKE_CROSSCOMPILING_EMULATOR=/usr/lib/emsdk/node/20.18.0_64bit/bin/node```
-- No extra dependencies are required.
-- Example usage
-```bash
-mkdir build
-cd build
-emcmake cmake ..
-cmake --build . --target SonyHeadphonesClient
-```
-- Run the generated page with `emrun client/index.html` - or host it with any static HTTP server.
+This installs:
 
-### IntelliJ CLion/Rider (emscripten)
-Set up CMake Toolchain variables with a new CMake Profile (in CMake options) - you can 
-then build from there and serve the static content within `<build directory>/client/` with any static HTTP server.
+- `sonytui` on your `PATH` — run it from any terminal.
+- **Sony Headphones TUI.app** in `~/Applications` (launches the TUI in Terminal).
+- **Sony Headphones Bar.app** in `~/Applications` — the menu bar app.
 
-## Platform Quirks
-### Linux
-On Linux, you may not see player metadata (track title, artist, etc.) despite correct output from `playerctl metadata` command
-while your device having proper AVRCP support (e.g. works on other platforms).
-- You (or your distro) may have misconfigured [MPRIS](https://wiki.archlinux.org/title/MPRIS) service. One way to remedy
-  is to manually run `mpris-proxy` (available in `bluez-tools`/`bluez-utils` package) in the background, or as a systemd service.
-- See also
-  - https://wiki.archlinux.org/title/MPRIS
-  - https://github.com/bluez/bluez/issues/868 
+Keybinds and per-client behavior live in the sub-READMEs:
+[`client-tui/README.md`](client-tui/README.md) and [`client-menubar/README.md`](client-menubar/README.md).
+
+## What's in here
+
+- `client-tui/` — the FTXUI terminal client (`sonytui`) + the CoreAudio system-audio visualizer.
+- `client-menubar/` — the native NSMenu menu bar app (`Sony Headphones Bar`).
+- `libmdr/`, `client/` — upstream's MDR protocol engine and reference ImGui/SDL client.
+
+## Quirks & notes
+
+- **EQ presets** on the XM5 are limited to the working set (Off + the firmware presets that
+  actually apply); some bands the protocol exposes don't take effect on this model.
+- **No power-off over MDR** — the XM5 firmware ignores it, so there's no power control.
+- **Never poll battery.** The clients rely on the headphones' push notifications; actively
+  polling battery desyncs the protocol sequence numbers and wedges the link.
+- **Visualizer permissions:** the visualizer captures system audio, so it needs *System Audio
+  Recording* permission. Terminal.app declares the usage string and prompts for it; some
+  terminals (Ghostty, WezTerm) don't, so it silently does nothing until you grant the terminal
+  that permission manually in **Privacy & Security → Screen & System Audio Recording**.
+- **One client at a time.** The headphones speak to a single MDR client — don't run the TUI and
+  the menu bar app against them simultaneously.
+
+## Credits
+
+- [Plutoberth](https://github.com/Plutoberth/SonyHeadphonesClient) — the original SonyHeadphonesClient.
+- [mos9527](https://github.com/mos9527) & [Amr Satrio (@Amrsatrio)](https://github.com/Amrsatrio) —
+  the SonyHeadphonesClient rewrite, the `libmdr` engine, and the reference client this stands on.
+- [FTXUI](https://github.com/ArthurSonzogni/FTXUI) (ArthurSonzogni) — the terminal UI library
+  behind the TUI.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE). Upstream copyright (mos9527, Amr Satrio) is retained; my additions
+(`client-tui`, `client-menubar`) are released under the same license.
