@@ -5,7 +5,7 @@
 
 A btop-style terminal client and a native macOS menu bar app for Sony WH-1000XM5 headphones.
 
-![Sony Headphones Bar — the macOS menu bar app](assets/menubar.png)
+![sonytui — the btop-style terminal client, with the audio visualizer running](assets/tui.png)
 
 A modified version of [Plutoberth's original SonyHeadphonesClient](https://github.com/Plutoberth/SonyHeadphonesClient)
 and [mos9527 & Amr Satrio's SonyHeadphonesClient rewrite](https://github.com/mos9527/SonyHeadphonesClient) —
@@ -23,6 +23,8 @@ leave it as-is for a while.
 
 - macOS — terminal (TUI)
 - macOS — menu bar app
+
+![Sony Headphones Bar — the macOS menu bar app](assets/menubar.png)
 
 ---
 
