@@ -53,6 +53,16 @@ exec open -a Terminal /usr/local/bin/sonytui
 EOF
 chmod +x "$APP/Contents/MacOS/launcher"
 
+# --- Menu bar app (real bundle; has its own Bluetooth permission) ---
+BAR_SRC="$ROOT/build-release/client-menubar/Sony Headphones Bar.app"
+if [ -d "$BAR_SRC" ]; then
+    BAR_DEST="$HOME/Applications/Sony Headphones Bar.app"
+    echo "Installing $BAR_DEST"
+    rm -rf "$BAR_DEST"
+    cp -R "$BAR_SRC" "$BAR_DEST"
+fi
+
 echo "Done."
 echo "  - run 'sonytui' from any terminal"
 echo "  - or launch 'Sony Headphones TUI' from ~/Applications (Spotlight finds it too)"
+echo "  - menu bar app: launch 'Sony Headphones Bar' from ~/Applications"

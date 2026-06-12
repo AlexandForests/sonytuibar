@@ -73,3 +73,9 @@ option(MDR_BUILD_CLIENT_TUI "Build the FTXUI terminal client" ON)
 if (MDR_BUILD_CLIENT_TUI AND (MDR_PLATFORM_OS STREQUAL "MACOS" OR MDR_PLATFORM_OS STREQUAL "LINUX"))
     add_subdirectory(client-tui)
 endif()
+
+# macOS menu bar client
+option(MDR_BUILD_CLIENT_MENUBAR "Build the macOS menu bar client" ON)
+if (MDR_BUILD_CLIENT_MENUBAR AND MDR_PLATFORM_OS STREQUAL "MACOS")
+    add_subdirectory(client-menubar)
+endif()
