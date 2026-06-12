@@ -36,7 +36,11 @@ please do so.
 - (instancetype)init {
     self = [super init];
     if (self) {
-        _buffer = [NSMutableData data];
+        // This file builds without ARC: a direct ivar assignment doesn't
+        // retain, so the autoreleased +data object dangled once a host app's
+        // autorelease pool drained (CLI hosts only survived by never having
+        // a pool). Own the buffer explicitly.
+        _buffer = [[NSMutableData alloc] init];
         _isConnected = NO;
         _isConnecting = NO;
     }
