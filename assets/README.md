@@ -1,6 +1,4 @@
 # assets
 
-`sonytui.png` — hero screenshot of the TUI shown at the top of the root README.
-Drop a screenshot of `sonytui` running here with that exact filename.
-
-(A demo GIF will join it later.)
+- `menubar.png` — the macOS menu bar app, shown as the hero in the root README.
+- A TUI dashboard shot and a demo GIF can join it here later.

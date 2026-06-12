@@ -1,8 +1,11 @@
 # sonytuibar
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)
+
 A btop-style terminal client and a native macOS menu bar app for Sony WH-1000XM5 headphones.
 
-![sonytui](assets/sonytui.png)
+![Sony Headphones Bar — the macOS menu bar app](assets/menubar.png)
 
 A modified version of [Plutoberth's original SonyHeadphonesClient](https://github.com/Plutoberth/SonyHeadphonesClient)
 and [mos9527 & Amr Satrio's SonyHeadphonesClient rewrite](https://github.com/mos9527/SonyHeadphonesClient) —
