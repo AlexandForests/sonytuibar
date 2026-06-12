@@ -10,7 +10,7 @@ Built as part of the normal tree (`MDR_BUILD_CLIENT_MENUBAR`, macOS only):
 
 ```sh
 cmake --build build-release --target SonyHeadphonesMenuBar
-./scripts/install-macos.sh   # copies it to ~/Applications
+./scripts/install-macos.sh bar   # 'bar' mode: just this app, to ~/Applications
 ```
 
 First connect prompts for Bluetooth permission for "Sony Headphones Bar"

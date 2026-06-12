@@ -33,10 +33,11 @@ Bluetooth permission for your terminal app.
 ```sh
 cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DMDR_ENABLE_CODEGEN=OFF -DMDR_BUILD_CLIENT=OFF
 cmake --build build-release --target SonyHeadphonesClientTUI
-./scripts/install-macos.sh
+./scripts/install-macos.sh tui
 ```
 
-This installs `sonytui` to `/usr/local/bin` (sudo for the copy) and a
+The `tui` mode installs just this client. This installs `sonytui` to
+`/usr/local/bin` (sudo for the copy) and a
 double-clickable **Sony Headphones TUI.app** launcher into `~/Applications`
 that opens Terminal running the TUI. Permissions (Bluetooth, audio capture)
 attach to Terminal, not the bundle.

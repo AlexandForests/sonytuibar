@@ -32,19 +32,38 @@ leave it as-is for a while.
 
 ## Install & use (macOS)
 
-Build the release binaries, then run the install script:
+Configure once:
 
 ```sh
 cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DMDR_ENABLE_CODEGEN=OFF -DMDR_BUILD_CLIENT=OFF
+```
+
+Then build + install whichever clients you want. The install script takes a
+mode: `both` (default), `tui`, or `bar`.
+
+**Both:**
+
+```sh
 cmake --build build-release --target SonyHeadphonesClientTUI SonyHeadphonesMenuBar
 ./scripts/install-macos.sh
 ```
 
-This installs:
+**TUI only** — `sonytui` on your `PATH` + **Sony Headphones TUI.app** (launches the TUI in Terminal):
 
-- `sonytui` on your `PATH` — run it from any terminal.
-- **Sony Headphones TUI.app** in `~/Applications` (launches the TUI in Terminal).
-- **Sony Headphones Bar.app** in `~/Applications` — the menu bar app.
+```sh
+cmake --build build-release --target SonyHeadphonesClientTUI
+./scripts/install-macos.sh tui
+```
+
+**Menu bar app only** — **Sony Headphones Bar.app** in `~/Applications`:
+
+```sh
+cmake --build build-release --target SonyHeadphonesMenuBar
+./scripts/install-macos.sh bar
+```
+
+(The CLI goes to `/usr/local/bin`, so the TUI install may prompt for `sudo`; the
+menu bar install is per-user, no `sudo`.)
 
 Keybinds and per-client behavior live in the sub-READMEs:
 [`client-tui/README.md`](client-tui/README.md) and [`client-menubar/README.md`](client-menubar/README.md).
