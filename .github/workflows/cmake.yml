@@ -3,10 +3,10 @@ name: Build
 on:
   push:
     branches:
-    - rewrite
+    - main
   pull_request:
     branches:
-    - rewrite
+    - main
   workflow_dispatch:
 
 env:  
@@ -88,6 +88,18 @@ jobs:
       shell: bash
       # Execute the build.  You can specify a specific target with "--target <NAME>"
       run: cmake --build . --config $BUILD_TYPE --target SonyHeadphonesClient
+
+    - name: Build TUI (Linux)
+      if: runner.os == 'Linux'
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: cmake --build . --config $BUILD_TYPE --target SonyHeadphonesClientTUI
+
+    - name: Build TUI + menu bar (macOS)
+      if: runner.os == 'macOS'
+      working-directory: ${{github.workspace}}/build
+      shell: bash
+      run: cmake --build . --config $BUILD_TYPE --target SonyHeadphonesClientTUI SonyHeadphonesMenuBar
 
     - name: Strip Symbols (Linux)
       if: runner.os == 'Linux'
