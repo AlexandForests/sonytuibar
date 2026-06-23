@@ -113,7 +113,7 @@ jobs:
       run: zip -r SonyHeadphonesClient.zip SonyHeadphonesClient.app
 
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         # Artifact name
         name: ${{ matrix.artifact_name }}
