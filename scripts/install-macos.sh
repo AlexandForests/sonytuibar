@@ -84,8 +84,13 @@ install_bar() {
     fi
     BAR_DEST="$HOME/Applications/Sony Headphones Bar.app"
     echo "Installing $BAR_DEST"
+    mkdir -p "$HOME/Applications"
     rm -rf "$BAR_DEST"
     cp -R "$BAR_SRC" "$BAR_DEST"
+
+    echo "Ad-hoc signing $BAR_DEST"
+    codesign --force --sign - "$BAR_DEST"
+    codesign --verify --strict --verbose=2 "$BAR_DEST"
 }
 
 case "$MODE" in tui|both) install_tui ;; esac

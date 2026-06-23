@@ -15,7 +15,9 @@ cmake --build build-release --target SonyHeadphonesMenuBar
 
 First connect prompts for Bluetooth permission for "Sony Headphones Bar"
 (it's a real bundle, unlike the TUI's Terminal-launcher .app — permissions
-are its own). Ad-hoc signed: a rebuild may re-prompt once after reinstall.
+are its own). The installer ad-hoc signs the installed bundle so the
+`Info.plist` and icon are sealed and Launch at Login sees a valid app
+signature. This is local signing, not Developer ID notarization.
 
 ## Behavior
 

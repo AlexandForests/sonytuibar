@@ -85,6 +85,9 @@ Keybinds and per-client behavior live in the sub-READMEs:
   Recording* permission. Terminal.app declares the usage string and prompts for it; some
   terminals (Ghostty, WezTerm) don't, so it silently does nothing until you grant the terminal
   that permission manually in **Privacy & Security → Screen & System Audio Recording**.
+- **Menu bar signing:** `install-macos.sh` ad-hoc signs the installed menu bar bundle in
+  `~/Applications` so Launch at Login and privacy permissions see a valid app signature. This is
+  local signing, not Developer ID notarization.
 - **One client at a time.** The headphones speak to a single MDR client — don't run the TUI and
   the menu bar app against them simultaneously.
 
