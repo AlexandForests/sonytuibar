@@ -281,6 +281,7 @@ namespace mdr
             UInt8 level{}; // Percentage
             UInt8 threshold{}; // Used in FW update check, see https://github.com/mos9527/SonyHeadphonesClient/issues/30
             v2::t1::BatteryChargingStatus charging{};
+            bool valid{}; // True once a battery packet for this slot has been parsed
         };
 
         BatteryState mBatteryL, mBatteryR, mBatteryCase;

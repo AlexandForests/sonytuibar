@@ -64,7 +64,7 @@ namespace
     {
         int batL = -1, batR = -1, batCase = -1;
         int chgL = -1, chgR = -1, chgCase = -1;
-        bool thrL = false, thrR = false, thrCase = false;
+        bool validL = false, validR = false, validCase = false;
         bool ncEnabled = false;
         int ncMode = -1, ambLevel = -1;
         bool voice = false;
@@ -85,9 +85,9 @@ namespace
         s.chgL = static_cast<int>(d.mBatteryL.charging);
         s.chgR = static_cast<int>(d.mBatteryR.charging);
         s.chgCase = static_cast<int>(d.mBatteryCase.charging);
-        s.thrL = d.mBatteryL.threshold;
-        s.thrR = d.mBatteryR.threshold;
-        s.thrCase = d.mBatteryCase.threshold;
+        s.validL = d.mBatteryL.valid;
+        s.validR = d.mBatteryR.valid;
+        s.validCase = d.mBatteryCase.valid;
         s.ncEnabled = d.mNcAsmEnabled.current;
         s.ncMode = static_cast<int>(d.mNcAsmMode.current);
         s.ambLevel = d.mNcAsmAmbientLevel.current;

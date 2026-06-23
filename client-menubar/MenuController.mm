@@ -462,7 +462,7 @@ namespace
     NSString* barTitle = @"";
     if (connected)
     {
-        if (_device.mBatteryL.threshold)
+        if (_device.mBatteryL.valid)
             barTitle = [NSString stringWithFormat:@" %d%%", _device.mBatteryL.level];
     }
     else if (_stage == Stage::Connecting)
@@ -499,12 +499,12 @@ namespace
     // Battery rows (gating mirrors client-tui BatteryPanel).
     bool lr = connected && (Has(_device, F1::LEFT_RIGHT_BATTERY_LEVEL_INDICATOR) ||
                             Has(_device, F1::LR_BATTERY_LEVEL_WITH_THRESHOLD)) &&
-              _device.mBatteryL.threshold && _device.mBatteryR.threshold;
-    bool single = connected && !lr && _device.mBatteryL.threshold;
+              _device.mBatteryL.valid && _device.mBatteryR.valid;
+    bool single = connected && !lr && _device.mBatteryL.valid;
     bool casing = connected &&
                   (Has(_device, F1::CRADLE_BATTERY_LEVEL_INDICATOR) ||
                    Has(_device, F1::CRADLE_BATTERY_LEVEL_WITH_THRESHOLD)) &&
-                  _device.mBatteryCase.threshold;
+                  _device.mBatteryCase.valid;
 
     _batteryItem.hidden = !(lr || single);
     if (lr)

@@ -182,16 +182,16 @@ namespace tui
                 return nullptr;
 
             Elements rows;
-            if (lr && d.mBatteryL.threshold && d.mBatteryR.threshold)
+            if (lr && d.mBatteryL.valid && d.mBatteryR.valid)
             {
                 rows.push_back(BatteryRow("L", d.mBatteryL));
                 rows.push_back(BatteryRow("R", d.mBatteryR));
             }
-            else if (single && d.mBatteryL.threshold)
+            else if (single && d.mBatteryL.valid)
             {
                 rows.push_back(BatteryRow("Batt", d.mBatteryL));
             }
-            if (casing && d.mBatteryCase.threshold)
+            if (casing && d.mBatteryCase.valid)
                 rows.push_back(BatteryRow("Case", d.mBatteryCase));
 
             if (rows.empty())

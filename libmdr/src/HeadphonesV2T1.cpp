@@ -177,7 +177,8 @@ namespace mdr
                 self->mBatteryL = {
                     res.batteryStatus.batteryLevel,
                     0xFF,
-                    res.batteryStatus.chargingStatus
+                    res.batteryStatus.chargingStatus,
+                    true
                 };
                 return MDR_HEADPHONES_EVT_BATTERY;
             }
@@ -192,12 +193,14 @@ namespace mdr
                 self->mBatteryL = {
                     res.batteryStatus.leftBatteryLevel,
                     0xFF,
-                    res.batteryStatus.leftChargingStatus
+                    res.batteryStatus.leftChargingStatus,
+                    true
                 };
                 self->mBatteryR = {
                     res.batteryStatus.rightBatteryLevel,
                     0xFF,
-                    res.batteryStatus.rightChargingStatus
+                    res.batteryStatus.rightChargingStatus,
+                    true
                 };
                 return MDR_HEADPHONES_EVT_BATTERY;
             }
@@ -212,7 +215,8 @@ namespace mdr
                 self->mBatteryCase = {
                     res.batteryStatus.batteryLevel,
                     0xFF,
-                    res.batteryStatus.chargingStatus
+                    res.batteryStatus.chargingStatus,
+                    true
                 };
                 return MDR_HEADPHONES_EVT_BATTERY;
             }
@@ -227,7 +231,8 @@ namespace mdr
                 self->mBatteryL = {
                     res.batteryStatus.batteryStatus.batteryLevel,
                     res.batteryStatus.batteryThreshold,
-                    res.batteryStatus.batteryStatus.chargingStatus
+                    res.batteryStatus.batteryStatus.chargingStatus,
+                    true
                 };
                 return MDR_HEADPHONES_EVT_BATTERY;
             }
@@ -242,12 +247,14 @@ namespace mdr
                 self->mBatteryL = {
                     res.batteryStatus.leftBatteryLevel,
                     res.leftBatteryThreshold,
-                    res.batteryStatus.leftChargingStatus
+                    res.batteryStatus.leftChargingStatus,
+                    true
                 };
                 self->mBatteryR = {
                     res.batteryStatus.rightBatteryLevel,
                     res.rightBatteryThreshold,
-                    res.batteryStatus.rightChargingStatus
+                    res.batteryStatus.rightChargingStatus,
+                    true
                 };
                 return MDR_HEADPHONES_EVT_BATTERY;
             }
@@ -262,7 +269,8 @@ namespace mdr
                 self->mBatteryCase = {
                     res.batteryStatus.batteryStatus.batteryLevel,
                     res.batteryStatus.batteryThreshold,
-                    res.batteryStatus.batteryStatus.chargingStatus
+                    res.batteryStatus.batteryStatus.chargingStatus,
+                    true
                 };
                 return MDR_HEADPHONES_EVT_BATTERY;
             }
