@@ -406,8 +406,12 @@ namespace
 
         case Stage::Connected:
         {
-            // Brief nested run-loop turn; also keeps IOBluetooth callbacks
-            // flowing while the menu holds the loop in event-tracking mode.
+            // Poll(1) spins a brief *nested* run-loop turn (see PlatformMacOS Poll):
+            // since this pump runs from an NSTimer in common modes, IOBluetooth
+            // callbacks can arrive reentrantly here. That's tolerated — the stage
+            // and device reads below don't straddle a half-updated state across the
+            // Poll call. (Keeps callbacks flowing while the menu holds the loop in
+            // event-tracking mode.)
             if (_conn->Poll(1) == MDR_RESULT_ERROR_NET)
             {
                 [self dropWithStatus:[NSString stringWithUTF8String:_conn->LastError()]
@@ -565,8 +569,8 @@ namespace
         _volumeValue.stringValue = [NSString stringWithFormat:@"%d", vol];
     }
 
-    // Disconnect availability + launch-at-login state.
-    _disconnectItem.enabled = _stage != Stage::Disconnected;
+    // Launch-at-login state. (The Disconnect item's enabled-state is set where the
+    // item is created, in menuNeedsUpdate: — the only time it's visible.)
     if (@available(macOS 13.0, *))
         _launchItem.state = ([SMAppService mainAppService].status == SMAppServiceStatusEnabled)
                                 ? NSControlStateValueOn

@@ -12,6 +12,7 @@ please do so.
 #include <string>
 
 #include "../Platform.hpp"
+#include <mdr-c/Base.h>
 #include <mdr-c/Platform/PlatformMacOS.h>
 
 @interface MDRBluetoothDelegate : NSObject <IOBluetoothRFCOMMChannelDelegate>
@@ -270,10 +271,13 @@ struct MDRConnectionMacOS
     static int Poll(void* user, int timeout) {
         auto* self = static_cast<MDRConnectionMacOS*>(user);
         @autoreleasepool {
-            // Processing run loop events
-            // We use a small interval if timeout > 0, otherwise instant check?
-            // If timeout is 0, we should just check and return immediately?
-            // Use 0.001s minimum to allow runloop to turn if timeout > 0
+            // Service the run loop so IOBluetooth delivers its callbacks. NOTE:
+            // this spins a *nested* run-loop turn — a caller already invoked from
+            // the run loop (e.g. the menu bar's NSTimer pump) re-enters it here, so
+            // IOBluetooth delegate callbacks may be delivered reentrantly. Callers
+            // must tolerate that (no half-updated shared state across this call).
+            // Needed for hosts whose UI loop (FTXUI) doesn't pump Cocoa;
+            // redundant-but-harmless where AppKit already runs the loop.
             
             if (timeout < 0) timeout = 1000; // Cap infinite wait for now or loop?
             
@@ -306,24 +310,38 @@ struct MDRConnectionMacOS
 
     static int GetDevicesList(void* user, MDRDeviceInfo** ppList, int* pCount) {
         @autoreleasepool {
-            NSArray *devices = [IOBluetoothDevice pairedDevices];
-            if (!devices || devices.count == 0) {
-                *pCount = 0;
+            NSArray *paired = [IOBluetoothDevice pairedDevices];
+
+            // Filter to devices that actually expose the MDR service. Otherwise the
+            // picker lists every paired BT device (keyboards, mice, AirPods...) and
+            // selecting a non-MDR one just fails later with "service not found".
+            // Same lookup the connect path uses (getServiceRecordForUUID).
+            uint8_t uuidBytes[16];
+            NSMutableArray<IOBluetoothDevice*> *mdrDevices = [NSMutableArray array];
+            if (paired.count && serviceUUIDtoBytes(MDR_SERVICE_UUID_XM5, uuidBytes) == 0) {
+                IOBluetoothSDPUUID *mdrUuid = [IOBluetoothSDPUUID uuidWithBytes:uuidBytes length:16];
+                for (IOBluetoothDevice *dev in paired) {
+                    if ([dev getServiceRecordForUUID:mdrUuid] != nil) {
+                        [mdrDevices addObject:dev];
+                    }
+                }
+            }
+
+            *pCount = (int)mdrDevices.count;
+            if (*pCount == 0) {
                 *ppList = nullptr;
                 return MDR_RESULT_OK;
             }
-            
-            *ppList = new MDRDeviceInfo[devices.count];
-            *pCount = (int)devices.count;
-            
-            for (NSUInteger i = 0; i < devices.count; i++) {
-                IOBluetoothDevice *dev = devices[i];
+
+            *ppList = new MDRDeviceInfo[mdrDevices.count];
+            for (NSUInteger i = 0; i < mdrDevices.count; i++) {
+                IOBluetoothDevice *dev = mdrDevices[i];
                 NSString *name = dev.name;
                 NSString *addr = [dev.addressString stringByReplacingOccurrencesOfString:@"-" withString:@":"];
-                
+
                 MDRDeviceInfo *info = &(*ppList)[i];
                 memset(info, 0, sizeof(MDRDeviceInfo));
-                
+
                 if (name) {
                     strncpy(info->szDeviceName, [name UTF8String], sizeof(info->szDeviceName) - 1);
                 }
