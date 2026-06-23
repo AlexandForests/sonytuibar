@@ -47,6 +47,18 @@ please do so.
     return self;
 }
 
+- (void)dealloc {
+    if (_rfcommChannel) {
+        [_rfcommChannel setDelegate:nil];
+        [_rfcommChannel closeChannel];
+        [_rfcommChannel release];
+        _rfcommChannel = nil;
+    }
+    [_buffer release];
+    [_lastError release];
+    [super dealloc];
+}
+
 - (void)appendData:(NSData *)data {
     std::lock_guard<std::mutex> lock(_bufferMutex);
     [_buffer appendData:data];
@@ -118,13 +130,15 @@ please do so.
     }
     
     self.rfcommChannel = channel;
+    [channel release]; // openRFCOMMChannelAsync returns a retained channel.
 }
 
 - (void)disconnect {
-    if (self.rfcommChannel) {
+    if (_rfcommChannel) {
         // [self.rfcommChannel closeChannel]; // closeChannel is valid?
         // documentation says closeChannel.
-        [self.rfcommChannel closeChannel];
+        [_rfcommChannel setDelegate:nil];
+        [_rfcommChannel closeChannel];
         self.rfcommChannel = nil;
     }
     self.isConnected = NO;
@@ -133,7 +147,9 @@ please do so.
 
 - (void)sendData:(NSData *)data {
     if (self.rfcommChannel && self.isConnected) {
-        // writeAsync is best effort and non-blocking
+        // IOBluetoothRFCOMMChannel.h says writeAsync returns success once the
+        // data is buffered, so Send()'s autoreleased NSData does not need to
+        // outlive this call.
         [self.rfcommChannel writeAsync:(void *)data.bytes length:data.length refcon:NULL];
     }
 }
@@ -145,6 +161,7 @@ please do so.
         self.lastError = [NSString stringWithFormat:@"Connection handshake failed: 0x%x", error];
         self.isConnecting = NO;
         self.isConnected = NO;
+        [rfcommChannel setDelegate:nil];
         self.rfcommChannel = nil; // clear it
         return;
     }
@@ -160,6 +177,7 @@ please do so.
 - (void)rfcommChannelClosed:(IOBluetoothRFCOMMChannel *)rfcommChannel {
     self.isConnected = NO;
     self.isConnecting = NO;
+    [rfcommChannel setDelegate:nil];
     self.rfcommChannel = nil;
     if (!self.lastError) {
         self.lastError = @"Connection closed by remote";
@@ -189,10 +207,12 @@ struct MDRConnectionMacOS
     }
     
     ~MDRConnectionMacOS() {
-        // Delegate is autoreleased or we rely on ARC.
-        // If we want to clean up strictly:
-        [delegate disconnect];
-        delegate = nil;
+        // MRC translation unit: balance the +1 from alloc/init.
+        if (delegate) {
+            [delegate disconnect];
+            [delegate release];
+            delegate = nil;
+        }
     }
 
     static int Connect(void* user, const char* macAddress, const char* serviceUUID) {
