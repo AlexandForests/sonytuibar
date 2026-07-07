@@ -16,8 +16,11 @@ leave it as-is for a while.
 
 ## Roadmap
 
-- Linux support + Wayland bar (Waybar / Hyprland module)
-- Legacy (`v1` protocol) device support — WH-1000XM4 / XM3
+See the [project execution plan](PLAN.md) for how this work is organized and sequenced.
+
+- [Linux support + Wayland bar (Waybar / Hyprland module)](plans/02-linux-support.md)
+- [Windows support](plans/03-windows-support.md)
+- Legacy (`v1` protocol) device support — WH-1000XM4 / XM3 (unscheduled — see `PLAN.md`)
 
 ## Compatibility
 
