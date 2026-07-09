@@ -4,6 +4,10 @@
 #   ./scripts/install-macos.sh tui      # TUI only  (CLI + launcher .app)
 #   ./scripts/install-macos.sh bar      # menu bar app only
 #
+# Options:
+#   --build-dir <path>   # directory built binaries are read from (default: build-release)
+#                         # may appear before or after the mode argument
+#
 # TUI install lays down:
 #   - CLI:  /usr/local/bin/sonytui          (needs sudo if /usr/local/bin isn't writable)
 #   - App:  ~/Applications/Sony Headphones TUI.app  (opens Terminal running the TUI)
@@ -13,21 +17,35 @@
 #   - App:  ~/Applications/Sony Headphones Bar.app  (real bundle, own Bluetooth permission)
 set -e
 
-MODE="${1:-both}"
-case "$MODE" in
-    both|tui|bar) ;;
-    *) echo "Usage: $0 [both|tui|bar]" >&2; exit 2 ;;
-esac
+MODE=""
+BUILD_DIR="build-release"
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --build-dir)
+            BUILD_DIR="$2"
+            shift 2
+            ;;
+        both|tui|bar)
+            MODE="$1"
+            shift
+            ;;
+        *)
+            echo "Usage: $0 [--build-dir <path>] [both|tui|bar]" >&2
+            exit 2
+            ;;
+    esac
+done
+MODE="${MODE:-both}"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VERSION="$(sed -n 's/set(CLIENT_TUI_VERSION "\(.*\)")/\1/p' "$ROOT/client-tui/CMakeLists.txt")"
 
 install_tui() {
-    BIN="$ROOT/build-release/client-tui/sonytui"
+    BIN="$ROOT/$BUILD_DIR/client-tui/sonytui"
     if [ ! -x "$BIN" ]; then
         echo "TUI release binary not found. Build it first:" >&2
-        echo "  cmake -S \"$ROOT\" -B \"$ROOT/build-release\" -DCMAKE_BUILD_TYPE=Release -DMDR_ENABLE_CODEGEN=OFF -DMDR_BUILD_CLIENT=OFF" >&2
-        echo "  cmake --build \"$ROOT/build-release\" --target SonyHeadphonesClientTUI" >&2
+        echo "  cmake -S \"$ROOT\" -B \"$ROOT/$BUILD_DIR\" -DCMAKE_BUILD_TYPE=Release -DMDR_ENABLE_CODEGEN=OFF -DMDR_BUILD_CLIENT=OFF" >&2
+        echo "  cmake --build \"$ROOT/$BUILD_DIR\" --target SonyHeadphonesClientTUI" >&2
         exit 1
     fi
 
@@ -70,16 +88,16 @@ EOF
 }
 
 install_bar() {
-    BAR_SRC="$ROOT/build-release/client-menubar/Sony Headphones Bar.app"
+    BAR_SRC="$ROOT/$BUILD_DIR/client-menubar/Sony Headphones Bar.app"
     if [ ! -d "$BAR_SRC" ]; then
         if [ "$MODE" = "both" ]; then
             echo "Menu bar app not built — skipping. To include it:" >&2
-            echo "  cmake --build \"$ROOT/build-release\" --target SonyHeadphonesMenuBar" >&2
+            echo "  cmake --build \"$ROOT/$BUILD_DIR\" --target SonyHeadphonesMenuBar" >&2
             return 0
         fi
         echo "Menu bar app not found. Build it first:" >&2
-        echo "  cmake -S \"$ROOT\" -B \"$ROOT/build-release\" -DCMAKE_BUILD_TYPE=Release -DMDR_ENABLE_CODEGEN=OFF -DMDR_BUILD_CLIENT=OFF" >&2
-        echo "  cmake --build \"$ROOT/build-release\" --target SonyHeadphonesMenuBar" >&2
+        echo "  cmake -S \"$ROOT\" -B \"$ROOT/$BUILD_DIR\" -DCMAKE_BUILD_TYPE=Release -DMDR_ENABLE_CODEGEN=OFF -DMDR_BUILD_CLIENT=OFF" >&2
+        echo "  cmake --build \"$ROOT/$BUILD_DIR\" --target SonyHeadphonesMenuBar" >&2
         exit 1
     fi
     BAR_DEST="$HOME/Applications/Sony Headphones Bar.app"
