@@ -37,10 +37,9 @@ please do so.
 - (instancetype)init {
     self = [super init];
     if (self) {
-        // This file builds without ARC: a direct ivar assignment doesn't
-        // retain, so the autoreleased +data object dangled once a host app's
-        // autorelease pool drained (CLI hosts only survived by never having
-        // a pool). Own the buffer explicitly.
+        // This file builds under ARC (-fobjc-arc, set per-file in
+        // CMakeLists.txt): ARC retains this ivar assignment automatically,
+        // so no explicit ownership dance is needed here.
         _buffer = [[NSMutableData alloc] init];
         _isConnected = NO;
         _isConnecting = NO;
@@ -49,15 +48,13 @@ please do so.
 }
 
 - (void)dealloc {
+    // ARC releases _rfcommChannel/_buffer/_lastError automatically and
+    // synthesizes -dealloc's [super dealloc] call; this backstop only needs
+    // to do the non-memory cleanup: stop callbacks and close the channel.
     if (_rfcommChannel) {
         [_rfcommChannel setDelegate:nil];
         [_rfcommChannel closeChannel];
-        [_rfcommChannel release];
-        _rfcommChannel = nil;
     }
-    [_buffer release];
-    [_lastError release];
-    [super dealloc];
 }
 
 - (void)appendData:(NSData *)data {
@@ -131,7 +128,20 @@ please do so.
     }
     
     self.rfcommChannel = channel;
-    [channel release]; // openRFCOMMChannelAsync returns a retained channel.
+    // R2/ASan-GATE: the `channel` out-param is __autoreleasing under ARC, so
+    // ARC assumes openRFCOMMChannelAsync: returns +0/autoreleased into it.
+    // The IOBluetooth SDK header contract is explicit that it does NOT:
+    // IOBluetoothDevice.h's openRFCOMMChannelAsync: doc states "The channel
+    // must be released when the caller is done with it" (i.e. +1 OWNED handed
+    // back through the out-param), and ARC does not consume that +1 for us.
+    // Balance it explicitly after the strong property retains its own +1, so
+    // the net ownership held by self.rfcommChannel is +1 (not +2, which would
+    // leak). This is the line the ASan connect->quit gate must scrutinize: if
+    // ASan reports an over-release / double-free / use-after-free at connect,
+    // the runtime does not match that documented header contract on this OS
+    // version, so drop this CFRelease -- but then re-run a leak check, since
+    // ASan proves over-release, not the absence of the +1 leak it prevents.
+    CFRelease((__bridge CFTypeRef)channel);
 }
 
 - (void)disconnect {
@@ -208,10 +218,13 @@ struct MDRConnectionMacOS
     }
     
     ~MDRConnectionMacOS() {
-        // MRC translation unit: balance the +1 from alloc/init.
+        // ARC releases the __strong `delegate` member automatically after
+        // this destructor body runs (C++ destroys non-static data members
+        // after the body; ARC releases lifetime-qualified ObjC members
+        // there, even for a user-written destructor). `delegate = nil;`
+        // below is a harmless explicit early release, kept deliberately.
         if (delegate) {
             [delegate disconnect];
-            [delegate release];
             delegate = nil;
         }
     }
