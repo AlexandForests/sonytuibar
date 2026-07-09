@@ -130,14 +130,17 @@ please do so.
     self.rfcommChannel = channel;
     // R2/ASan-GATE: the `channel` out-param is __autoreleasing under ARC, so
     // ARC assumes openRFCOMMChannelAsync: returns +0/autoreleased into it.
-    // IOBluetooth empirically hands back a +1 OWNED channel through that
-    // out-param, and ARC does not consume that +1 for us. Balance it
-    // explicitly after the strong property retains its own +1, so the net
-    // ownership held by self.rfcommChannel is +1 (not +2, which would leak).
-    // This is the line the ASan connect->quit gate must scrutinize: if ASan
-    // reports an over-release / double-free / use-after-free at connect, the
-    // ARC writeback DID balance the +1 on its own and this CFRelease must be
-    // removed.
+    // The IOBluetooth SDK header contract is explicit that it does NOT:
+    // IOBluetoothDevice.h's openRFCOMMChannelAsync: doc states "The channel
+    // must be released when the caller is done with it" (i.e. +1 OWNED handed
+    // back through the out-param), and ARC does not consume that +1 for us.
+    // Balance it explicitly after the strong property retains its own +1, so
+    // the net ownership held by self.rfcommChannel is +1 (not +2, which would
+    // leak). This is the line the ASan connect->quit gate must scrutinize: if
+    // ASan reports an over-release / double-free / use-after-free at connect,
+    // the runtime does not match that documented header contract on this OS
+    // version, so drop this CFRelease -- but then re-run a leak check, since
+    // ASan proves over-release, not the absence of the +1 leak it prevents.
     CFRelease((__bridge CFTypeRef)channel);
 }
 
