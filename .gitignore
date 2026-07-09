@@ -535,8 +535,10 @@ cmake-build*/
 # Build trees (release packaging, audit/scratch builds, etc.)
 build-*/
 
-# Audit issue plans (local working notes, not published for now)
+# Local working notes / orchestration + planning docs (not published)
 issues/
+PLAN.md
+plans/
 
 # Visual Studio Generator files
 *.sln

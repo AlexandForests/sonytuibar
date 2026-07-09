@@ -14,14 +14,6 @@ made for my specific needs and platforms.
 I'll keep updating it as I work on it, but it's been working well for me, so I'll probably
 leave it as-is for a while.
 
-## Roadmap
-
-See the [project execution plan](PLAN.md) for how this work is organized and sequenced.
-
-- [Linux support + Wayland bar (Waybar / Hyprland module)](plans/02-linux-support.md)
-- [Windows support](plans/03-windows-support.md)
-- Legacy (`v1` protocol) device support — WH-1000XM4 / XM3 (unscheduled — see `PLAN.md`)
-
 ## Compatibility
 
 - macOS — terminal (TUI)
