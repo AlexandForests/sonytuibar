@@ -7,6 +7,8 @@ file(
 
 add_library(mdr_PlatformMacOS ${SOURCES})
 
+set_source_files_properties(PlatformMacOS.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+
 find_library(IOBLUETOOTH_FRAMEWORK IOBluetooth REQUIRED)
 find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
 
