@@ -9,6 +9,8 @@
 
 #include <mdr/ProtocolV2T1.hpp>
 
+#include "Capabilities.hpp"
+
 using namespace ftxui;
 namespace v2t1 = mdr::v2::t1;
 using F1 = mdr::v2::MessageMdrV2FunctionType_Table1;
@@ -24,79 +26,6 @@ namespace tui
         const Color kAccentPlay = Color::RGB(137, 180, 250);    // blue
         const Color kAccentHeader = Color::RGB(245, 194, 231);  // pink
         const Color kDimText = Color::RGB(127, 132, 156);
-
-        // --- Small enum formatters (subset copied from client/Client.cpp) ---
-
-        const char* CodecName(v2t1::AudioCodec c)
-        {
-            using enum v2t1::AudioCodec;
-            switch (c)
-            {
-            case SBC: return "SBC";
-            case AAC: return "AAC";
-            case LDAC: return "LDAC";
-            case APT_X: return "aptX";
-            case APT_X_HD: return "aptX HD";
-            case LC3: return "LC3";
-            case UNSETTLED: return "...";
-            default: return "?";
-            }
-        }
-
-        const char* UpscalingName(v2t1::UpscalingType t)
-        {
-            using enum v2t1::UpscalingType;
-            switch (t)
-            {
-            case DSEE_HX: return "DSEE HX";
-            case DSEE: return "DSEE";
-            case DSEE_HX_AI: return "DSEE HX AI";
-            case DSEE_ULTIMATE: return "DSEE ULTIMATE";
-            default: return "DSEE";
-            }
-        }
-
-        const char* ChargingName(v2t1::BatteryChargingStatus s)
-        {
-            using enum v2t1::BatteryChargingStatus;
-            switch (s)
-            {
-            case CHARGING: return "charging";
-            case CHARGED: return "charged";
-            default: return "";
-            }
-        }
-
-        const char* EqPresetName(v2t1::EqPresetId id)
-        {
-            using enum v2t1::EqPresetId;
-            switch (id)
-            {
-            case OFF: return "Off";
-            case ROCK: return "Rock";
-            case POP: return "Pop";
-            case JAZZ: return "Jazz";
-            case DANCE: return "Dance";
-            case EDM: return "EDM";
-            case R_AND_B_HIP_HOP: return "R&B/Hip-Hop";
-            case ACOUSTIC: return "Acoustic";
-            case BRIGHT: return "Bright";
-            case EXCITED: return "Excited";
-            case MELLOW: return "Mellow";
-            case RELAXED: return "Relaxed";
-            case VOCAL: return "Vocal";
-            case TREBLE: return "Treble";
-            case BASS: return "Bass";
-            case SPEECH: return "Speech";
-            case CUSTOM: return "Custom";
-            case USER_SETTING1: return "User 1";
-            case USER_SETTING2: return "User 2";
-            case USER_SETTING3: return "User 3";
-            case USER_SETTING4: return "User 4";
-            case USER_SETTING5: return "User 5";
-            default: return "Custom";
-            }
-        }
 
         // --- Helpers ---
 
@@ -198,20 +127,6 @@ namespace tui
                 rows.push_back(text("(querying...)") | color(kDimText));
 
             return Panel("battery", vbox(std::move(rows)), kAccentBattery);
-        }
-
-        bool SupportsNcAsm(const mdr::MDRHeadphones& d)
-        {
-            return Supports(d, F1::NOISE_CANCELLING_ONOFF) ||
-                   Supports(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_ONOFF) ||
-                   Supports(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Supports(d, F1::NOISE_CANCELLING_DUAL_SINGLE_OFF_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Supports(d, F1::AMBIENT_SOUND_MODE_ONOFF) ||
-                   Supports(d, F1::AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Supports(d, F1::AMBIENT_SOUND_CONTROL_MODE_SELECT) ||
-                   Supports(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Supports(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_SINGLE_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Supports(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT_NOISE_ADAPTATION);
         }
 
         Element NoiseModeChip(const std::string& label, bool active, const Color& accent)

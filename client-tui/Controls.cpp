@@ -1,45 +1,19 @@
 #include "Controls.hpp"
 
 #include <algorithm>
-#include <array>
 #include <string>
 
 #include <mdr/ProtocolV2T1.hpp>
 
+#include "Capabilities.hpp"
+
 using namespace ftxui;
 namespace v2t1 = mdr::v2::t1;
-using F1 = mdr::v2::MessageMdrV2FunctionType_Table1;
 
 namespace tui
 {
     namespace
     {
-        bool Has(const mdr::MDRHeadphones& d, F1 f) { return d.mSupport.contains(f); }
-
-        bool SupportsNc(const mdr::MDRHeadphones& d)
-        {
-            return Has(d, F1::NOISE_CANCELLING_ONOFF) ||
-                   Has(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_ONOFF) ||
-                   Has(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::NOISE_CANCELLING_DUAL_SINGLE_OFF_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_SINGLE_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT_NOISE_ADAPTATION);
-        }
-
-        bool SupportsAsm(const mdr::MDRHeadphones& d)
-        {
-            return Has(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_ONOFF) ||
-                   Has(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::NOISE_CANCELLING_DUAL_SINGLE_OFF_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::AMBIENT_SOUND_MODE_ONOFF) ||
-                   Has(d, F1::AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::AMBIENT_SOUND_CONTROL_MODE_SELECT) ||
-                   Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_SINGLE_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-                   Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT_NOISE_ADAPTATION);
-        }
-
         // Cycle noise mode: Off -> NC -> Ambient -> Off (skipping modes the device lacks).
         void CycleNoise(mdr::MDRHeadphones& d)
         {
@@ -75,28 +49,6 @@ namespace tui
                 if (d.mNcAsmAmbientLevel.desired == 0)
                     d.mNcAsmAmbientLevel.desired = 20;
             }
-        }
-
-        // Only the presets the WH-1000XM5 actually applies: OFF plus IDs 0x10..0x17.
-        // The older Rock/Pop/Jazz... set (0x01..0x07) is rejected by the device
-        // firmware — it echoes the current preset back — so we don't offer them.
-        constexpr std::array<v2t1::EqPresetId, 9> kEqPresets = {
-            v2t1::EqPresetId::OFF,
-            v2t1::EqPresetId::BRIGHT, v2t1::EqPresetId::EXCITED, v2t1::EqPresetId::MELLOW,
-            v2t1::EqPresetId::RELAXED, v2t1::EqPresetId::VOCAL, v2t1::EqPresetId::TREBLE,
-            v2t1::EqPresetId::BASS, v2t1::EqPresetId::SPEECH,
-        };
-
-        void CycleEq(mdr::MDRHeadphones& d, int dir)
-        {
-            auto it = std::find(kEqPresets.begin(), kEqPresets.end(), d.mEqPresetId.desired);
-            int n = static_cast<int>(kEqPresets.size());
-            int idx;
-            if (it == kEqPresets.end())
-                idx = (dir > 0) ? 0 : n - 1; // unknown/unsupported current -> first valid
-            else
-                idx = (static_cast<int>(it - kEqPresets.begin()) + dir + n) % n;
-            d.mEqPresetId.desired = kEqPresets[idx];
         }
     }
 

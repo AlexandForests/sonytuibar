@@ -3,12 +3,12 @@
 #import <ServiceManagement/ServiceManagement.h>
 
 #include <algorithm>
-#include <array>
 #include <memory>
 #include <string>
 
 #include <mdr/Headphones.hpp>
 #include <mdr/ProtocolV2T1.hpp>
+#include "Capabilities.hpp"
 #include "Connection.hpp"
 
 namespace v2t1 = mdr::v2::t1;
@@ -31,67 +31,9 @@ namespace
     NSString* const kDefaultsMacKey = @"lastDeviceMac";
     NSString* const kDefaultsNameKey = @"lastDeviceName";
 
-    // --- Support checks + formatters, duplicated from client-tui (Controls.cpp/
-    // Panels.cpp are FTXUI-coupled TUs; the relevant logic is these few lines). ---
-
-    bool Has(const mdr::MDRHeadphones& d, F1 f) { return d.mSupport.contains(f); }
-
-    bool SupportsNc(const mdr::MDRHeadphones& d)
-    {
-        return Has(d, F1::NOISE_CANCELLING_ONOFF) ||
-               Has(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_ONOFF) ||
-               Has(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::NOISE_CANCELLING_DUAL_SINGLE_OFF_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_SINGLE_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT_NOISE_ADAPTATION);
-    }
-
-    bool SupportsAsm(const mdr::MDRHeadphones& d)
-    {
-        return Has(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_ONOFF) ||
-               Has(d, F1::NOISE_CANCELLING_ONOFF_AND_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::NOISE_CANCELLING_DUAL_SINGLE_OFF_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::AMBIENT_SOUND_MODE_ONOFF) ||
-               Has(d, F1::AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::AMBIENT_SOUND_CONTROL_MODE_SELECT) ||
-               Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_SINGLE_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT) ||
-               Has(d, F1::MODE_NC_ASM_NOISE_CANCELLING_DUAL_AMBIENT_SOUND_MODE_LEVEL_ADJUSTMENT_NOISE_ADAPTATION);
-    }
-
-    const char* CodecName(v2t1::AudioCodec c)
-    {
-        using enum v2t1::AudioCodec;
-        switch (c)
-        {
-        case SBC: return "SBC";
-        case AAC: return "AAC";
-        case LDAC: return "LDAC";
-        case APT_X: return "aptX";
-        case APT_X_HD: return "aptX HD";
-        case LC3: return "LC3";
-        default: return nullptr;
-        }
-    }
-
-    // Only the presets the WH-1000XM5 actually applies (see client-tui notes).
-    struct EqEntry
-    {
-        v2t1::EqPresetId id;
-        const char* name;
-    };
-    constexpr std::array<EqEntry, 9> kEqPresets = {{
-        {v2t1::EqPresetId::OFF, "Off"},
-        {v2t1::EqPresetId::BRIGHT, "Bright"},
-        {v2t1::EqPresetId::EXCITED, "Excited"},
-        {v2t1::EqPresetId::MELLOW, "Mellow"},
-        {v2t1::EqPresetId::RELAXED, "Relaxed"},
-        {v2t1::EqPresetId::VOCAL, "Vocal"},
-        {v2t1::EqPresetId::TREBLE, "Treble"},
-        {v2t1::EqPresetId::BASS, "Bass"},
-        {v2t1::EqPresetId::SPEECH, "Speech"},
-    }};
+    // Support checks + formatters (Has, SupportsNc, SupportsAsm, CodecName,
+    // kEqPresets, ...) live in the UI-agnostic Capabilities.hpp, shared with
+    // client-tui (Controls.cpp/Panels.cpp).
 
     NSString* BatteryText(const char* label, const mdr::MDRHeadphones::BatteryState& b)
     {
@@ -288,14 +230,14 @@ namespace
     _eqRoot = [[NSMenuItem alloc] initWithTitle:@"Equalizer" action:nil keyEquivalent:@""];
     _eqMenu = [[NSMenu alloc] init];
     _eqMenu.autoenablesItems = NO;
-    for (const auto& preset : kEqPresets)
+    for (const auto& presetId : tui::kEqPresets)
     {
         NSMenuItem* it = [[NSMenuItem alloc]
-            initWithTitle:[NSString stringWithUTF8String:preset.name]
+            initWithTitle:[NSString stringWithUTF8String:tui::EqPresetName(presetId)]
                    action:@selector(eqSelected:)
             keyEquivalent:@""];
         it.target = self;
-        it.representedObject = @(static_cast<int>(preset.id));
+        it.representedObject = @(static_cast<int>(presetId));
         [_eqMenu addItem:it];
     }
     _eqRoot.submenu = _eqMenu;
@@ -487,9 +429,8 @@ namespace
         NSMutableString* header = [NSMutableString stringWithUTF8String:model.c_str()];
         if (!_device.mFWVersion.empty())
             [header appendFormat:@"  fw %s", _device.mFWVersion.c_str()];
-        if (Has(_device, F1::CODEC_INDICATOR))
-            if (const char* codec = CodecName(_device.mAudioCodec))
-                [header appendFormat:@"  ·  %s", codec];
+        if (tui::Has(_device, F1::CODEC_INDICATOR))
+            [header appendFormat:@"  ·  %s", tui::CodecName(_device.mAudioCodec)];
         _headerItem.title = header;
         _statusLine.hidden = YES;
     }
@@ -501,13 +442,13 @@ namespace
     }
 
     // Battery rows (gating mirrors client-tui BatteryPanel).
-    bool lr = connected && (Has(_device, F1::LEFT_RIGHT_BATTERY_LEVEL_INDICATOR) ||
-                            Has(_device, F1::LR_BATTERY_LEVEL_WITH_THRESHOLD)) &&
+    bool lr = connected && (tui::Has(_device, F1::LEFT_RIGHT_BATTERY_LEVEL_INDICATOR) ||
+                            tui::Has(_device, F1::LR_BATTERY_LEVEL_WITH_THRESHOLD)) &&
               _device.mBatteryL.valid && _device.mBatteryR.valid;
     bool single = connected && !lr && _device.mBatteryL.valid;
     bool casing = connected &&
-                  (Has(_device, F1::CRADLE_BATTERY_LEVEL_INDICATOR) ||
-                   Has(_device, F1::CRADLE_BATTERY_LEVEL_WITH_THRESHOLD)) &&
+                  (tui::Has(_device, F1::CRADLE_BATTERY_LEVEL_INDICATOR) ||
+                   tui::Has(_device, F1::CRADLE_BATTERY_LEVEL_WITH_THRESHOLD)) &&
                   _device.mBatteryCase.valid;
 
     _batteryItem.hidden = !(lr || single);
@@ -522,8 +463,8 @@ namespace
         _batteryCaseItem.title = BatteryText("Case", _device.mBatteryCase);
 
     // Noise controls (checkmarks track .desired so clicks feel instant).
-    bool nc = connected && SupportsNc(_device);
-    bool asm_ = connected && SupportsAsm(_device);
+    bool nc = connected && tui::SupportsNc(_device);
+    bool asm_ = connected && tui::SupportsAsm(_device);
     bool noiseOff = !_device.mNcAsmEnabled.desired;
     bool noiseNc = !noiseOff && _device.mNcAsmMode.desired == v2t1::NcAsmMode::NC;
 
